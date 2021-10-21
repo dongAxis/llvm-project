@@ -9,5 +9,6 @@ add_llvm_unittest(BinaryFormatTests
   MsgPackReaderTest.cpp
   MsgPackWriterTest.cpp
   TestFileMagic.cpp
+  JSONTest2.cpp
   )
 
