@@ -145,7 +145,7 @@ public:
   // Index of MIPS GOT built for this file.
   llvm::Optional<size_t> mipsGotIndex;
 
-  std::vector<Symbol *> symbols;
+  std::vector<Symbol *> symbols;      // 保存当前所有的符号信息到当前的数组中。
 
 protected:
   InputFile(Kind k, MemoryBufferRef m);
@@ -394,6 +394,7 @@ private:
                                      const typename ELFT::Shdr *sec);
 };
 
+// https://www.linuxjournal.com/content/embedding-file-executable-aka-hello-world-version-5967
 class BinaryFile : public InputFile {
 public:
   explicit BinaryFile(MemoryBufferRef m) : InputFile(BinaryKind, m) {}

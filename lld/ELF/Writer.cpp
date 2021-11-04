@@ -2003,7 +2003,7 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
 
   // Change values of linker-script-defined symbols from placeholders (assigned
   // by declareSymbols) to actual definitions.
-  script->processSymbolAssignments();
+  script->processSymbolAssignments();     // 定义由linker定义的变量。
 
   {
     llvm::TimeTraceScope timeScope("Scan relocations");

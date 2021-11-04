@@ -816,7 +816,7 @@ void LinkerScript::addOrphanSections() {
       if (InputSectionBase *rel = sec->getRelocatedSection())
         if (auto *relIS = dyn_cast_or_null<InputSectionBase>(rel->parent))
           add(relIS);
-    add(isec);
+    add(isec);    // 在这里完成了input section和outputsection之间关系的建立。
   }
 
   // If no SECTIONS command was given, we should insert sections commands

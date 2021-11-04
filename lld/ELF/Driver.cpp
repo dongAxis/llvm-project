@@ -2185,10 +2185,10 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
   // find that it failed because there was a mistake in their command-line.
   {
     llvm::TimeTraceScope timeScope("Create output files");
-    if (auto e = tryCreateFile(config->outputFile))
+    if (auto e = tryCreateFile(config->outputFile))    //   --> output file
       error("cannot open output file " + config->outputFile + ": " +
             e.message());
-    if (auto e = tryCreateFile(config->mapFile))
+    if (auto e = tryCreateFile(config->mapFile))      //  ----> map file
       error("cannot open map file " + config->mapFile + ": " + e.message());
   }
   if (errorCount())
@@ -2219,7 +2219,7 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
     llvm::TimeTraceScope timeScope("Parse input files");
     for (size_t i = 0; i < files.size(); ++i) {
       llvm::TimeTraceScope timeScope("Parse input files", files[i]->getName());
-      parseFile(files[i]);
+      parseFile(files[i]);    // 此时所有的symbol都已经准备好了
     }
   }
 
@@ -2234,7 +2234,7 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
 
   // Some symbols (such as __ehdr_start) are defined lazily only when there
   // are undefined symbols for them, so we add these to trigger that logic.
-  for (StringRef name : script->referencedSymbols)
+  for (StringRef name : script->referencedSymbols)    // 所有的linker script中的符号都默认是undef
     addUndefined(name);
 
   // Prevent LTO from removing any definition referenced by -u.
@@ -2246,6 +2246,7 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
   if (Symbol *sym = symtab->find(config->entry))
     handleUndefined(sym);
 
+  // https://reviews.llvm.org/D63244
   // Handle the `--undefined-glob <pattern>` options.
   for (StringRef pat : args::getStrings(args, OPT_undefined_glob))
     handleUndefinedGlob(pat);
@@ -2304,7 +2305,7 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
 
   // We need to create some reserved symbols such as _end. Create them.
   if (!config->relocatable)
-    addReservedSymbols();
+    addReservedSymbols();    // 注册当前默认的符号， 这些符号都是内部变量。
 
   // Apply version scripts.
   //
@@ -2347,7 +2348,7 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
     return;
 
   // Apply symbol renames for -wrap and combine foo@v1 and foo@@v1.
-  redirectSymbols(wrapped);
+  redirectSymbols(wrapped);   // ?????
 
   {
     llvm::TimeTraceScope timeScope("Aggregate sections");
@@ -2363,6 +2364,7 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
         inputSections.push_back(cast<InputSection>(s));
   }
 
+  // 删除无用的section， 通常来说是debug symbol段。
   {
     llvm::TimeTraceScope timeScope("Strip sections");
     llvm::erase_if(inputSections, [](InputSectionBase *s) {
@@ -2434,22 +2436,22 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
     inputSections.push_back(createCommentSection());
 
   // Replace common symbols with regular symbols.
-  replaceCommonSymbols();
+  replaceCommonSymbols();   // 使用bss中定义的变量替换掉之前的common symbol
 
   // Split SHF_MERGE and .eh_frame sections into pieces in preparation for garbage collection.
   splitSections<ELFT>();
 
   // Garbage collection and removal of shared symbols from unused shared objects.
   markLive<ELFT>();
-  demoteSharedSymbols();
+  demoteSharedSymbols();  // 如果某个so提供的全部符号都是weak， 那么当前so可以直接忽略；并且so提供的符号为undef
 
   // Make copies of any input sections that need to be copied into each
   // partition.
-  copySectionsIntoPartitions();
+  copySectionsIntoPartitions();   // ????
 
   // Create synthesized sections such as .got and .plt. This is called before
   // processSectionCommands() so that they can be placed by SECTIONS commands.
-  createSyntheticSections<ELFT>();
+  createSyntheticSections<ELFT>();   // 添加一些固定需要的section到数组中。
 
   // Some input sections that are used for exception handling need to be moved
   // into synthetic sections. Do that now so that they aren't assigned to
@@ -2467,7 +2469,7 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
     // sections. Input sections that were not handled by scripts are called
     // "orphans", and they are assigned to output sections by the default rule.
     // Process that.
-    script->addOrphanSections();
+    script->addOrphanSections();     // 将那些不在scriptt中定义的section添加到当前的outputsection中。
   }
 
   {

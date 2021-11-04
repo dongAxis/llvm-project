@@ -266,7 +266,7 @@ public:
   uint8_t gotInIgot : 1;
 
   // True if this symbol is preemptible at load time.
-  uint8_t isPreemptible : 1;
+  uint8_t isPreemptible : 1;   // http://rsusu1.rnd.runnet.ru/linux/doc/c_ug/lin1004.htm
 
   // True if an undefined or shared symbol is used from a live section.
   //

@@ -283,6 +283,7 @@ public:
   /// Returns the source file path specified at compile time.
   StringRef getSourceFileName() const { return str(header().SourceFileName); }
 
+  /// https://stackoverflow.com/questions/1834597/what-is-the-comdat-section-used-for/1834722#1834722
   /// Returns a table with all the comdats used by this file.
   std::vector<std::pair<StringRef, llvm::Comdat::SelectionKind>>
   getComdatTable() const {

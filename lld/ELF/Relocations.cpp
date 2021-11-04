@@ -1309,7 +1309,7 @@ static void scanReloc(InputSectionBase &sec, OffsetGetter &getOffset, RelTy *&i,
                       RelTy *start, RelTy *end) {
   const RelTy &rel = *i;
   uint32_t symIndex = rel.getSymbol(config->isMips64EL);
-  Symbol &sym = sec.getFile<ELFT>()->getSymbol(symIndex);
+  Symbol &sym = sec.getFile<ELFT>()->getSymbol(symIndex);   // 获取正在重定为的符号。
   RelType type;
 
   // Deal with MIPS oddity.

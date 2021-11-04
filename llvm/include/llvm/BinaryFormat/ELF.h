@@ -1138,6 +1138,7 @@ enum {
   STB_LOCAL = 0,  // Local symbol, not visible outside obj file containing def
   STB_GLOBAL = 1, // Global symbol, visible to all object files being combined
   STB_WEAK = 2,   // Weak symbol, like global but lower-precedence
+  // https://ppwwyyxx.com/blog/2021/Patch-STB_GNU_UNIQUE/
   STB_GNU_UNIQUE = 10,
   STB_LOOS = 10,   // Lowest operating system-specific binding type
   STB_HIOS = 12,   // Highest operating system-specific binding type

@@ -674,6 +674,7 @@ enum AttributeKindCodes {
   ATTR_KIND_DISABLE_SANITIZER_INSTRUMENTATION = 78,
 };
 
+// https://tianshilei.me/comdat-in-llvm/
 enum ComdatSelectionKindCodes {
   COMDAT_SELECTION_KIND_ANY = 1,
   COMDAT_SELECTION_KIND_EXACT_MATCH = 2,

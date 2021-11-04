@@ -380,6 +380,7 @@ defm soname: Eq<"soname", "Set DT_SONAME">;
 defm sort_section:
   Eq<"sort-section", "Specifies sections sorting rule when linkerscript is used">;
 
+// https://blog.csdn.net/qq_36412526/article/details/88383889
 def start_group: F<"start-group">,
   HelpText<"Ignored for compatibility with GNU unless you pass --warn-backrefs">;
 
@@ -492,6 +493,7 @@ defm whole_archive: B<"whole-archive",
     "Force load of all members in a static library",
     "Do not force load of all members in a static library (default)">;
 
+// https://gist.github.com/mlabbe/a0b7b14be652085341162321a0a08530
 defm wrap : Eq<"wrap", "Redirect symbol references to __wrap_symbol and "
                        "__real_symbol references to symbol">,
             MetaVarName<"<symbol>">;

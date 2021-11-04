@@ -377,6 +377,9 @@ template <class ELFT> void ELFFileBase::init() {
     return;
 
   // Initialize members corresponding to a symbol table.
+  // 这个是ELF中的一个规定， 对于SHT_SYMTAB或者SHT_DYNSYM来说，
+  // 其section中的sh_info代表了第一个非local的符号索引，同时其也代表了在
+  // 当前的文件中有多少个local符号。
   firstGlobal = symtabSec->sh_info;
 
   ArrayRef<Elf_Sym> eSyms = CHECK(obj.symbols(symtabSec), this);
@@ -1118,13 +1121,13 @@ template <class ELFT> void ObjFile<ELFT>::initializeSymbols() {
       fatal(toString(this) + ": invalid symbol name offset");
     StringRefZ name = this->stringTable.data() + eSym.st_name;
 
-    if (eSym.st_shndx == SHN_UNDEF)
+    if (eSym.st_shndx == SHN_UNDEF)    // undef symbol idx
       this->symbols[i] =
-          make<Undefined>(this, name, STB_LOCAL, eSym.st_other, type);
-    else if (sec == &InputSection::discarded)
+          make<Undefined>(this, name, STB_LOCAL, eSym.st_other, type);   // 当前定义为undef的local symbol
+    else if (sec == &InputSection::discarded)   // 什么情况改下sec会被discard？？？
       this->symbols[i] =
           make<Undefined>(this, name, STB_LOCAL, eSym.st_other, type,
-                          /*discardedSecIdx=*/secIdx);
+                          /*discardedSecIdx=*/secIdx);    // 如果section被discard， 那么当前符号也是undef
     else
       this->symbols[i] = make<Defined>(this, name, STB_LOCAL, eSym.st_other,
                                        type, eSym.st_value, eSym.st_size, sec);
