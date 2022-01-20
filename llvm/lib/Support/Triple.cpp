@@ -37,6 +37,8 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
   case bpfeb:          return "bpfeb";
   case bpfel:          return "bpfel";
   case csky:           return "csky";
+  case cpu0:
+  case cpu0el:         return "cpu0";
   case hexagon:        return "hexagon";
   case hsail64:        return "hsail64";
   case hsail:          return "hsail";
@@ -340,6 +342,8 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
     .Case("renderscript64", renderscript64)
     .Case("ve", ve)
     .Case("csky", csky)
+    .Case("cpu0", cpu0)
+    .Case("cpu0el", cpu0el)
     .Default(UnknownArch);
 }
 
@@ -475,6 +479,8 @@ static Triple::ArchType parseArch(StringRef ArchName) {
     .Case("wasm32", Triple::wasm32)
     .Case("wasm64", Triple::wasm64)
     .Case("csky", Triple::csky)
+    .Cases("cpu0", "cpu0eb", "cpu0allegrex", Triple::cpu0)
+    .Cases("cpu0el", "cpu0allegrexel", Triple::cpu0el)
     .Default(Triple::UnknownArch);
 
   // Some architectures require special parsing logic just to compute the
@@ -757,6 +763,8 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
   case Triple::thumbeb:
   case Triple::ve:
   case Triple::xcore:
+  case Triple::cpu0:
+  case Triple::cpu0el:
     return Triple::ELF;
 
   case Triple::ppc64:
@@ -1311,6 +1319,8 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
   case llvm::Triple::wasm32:
   case llvm::Triple::x86:
   case llvm::Triple::xcore:
+  case llvm::Triple::cpu0:
+  case llvm::Triple::cpu0el:
     return 32;
 
   case llvm::Triple::aarch64:
@@ -1398,6 +1408,8 @@ Triple Triple::get32BitArchVariant() const {
   case Triple::wasm32:
   case Triple::x86:
   case Triple::xcore:
+  case Triple::cpu0:
+  case Triple::cpu0el:
     // Already 32-bit.
     break;
 

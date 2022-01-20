@@ -101,6 +101,8 @@ public:
     wasm64,         // WebAssembly with 64-bit pointers
     renderscript32, // 32-bit RenderScript
     renderscript64, // 64-bit RenderScript
+    cpu0,           // For Tutorial Backend Cpu0
+    cpu0el,
     ve,             // NEC SX-Aurora Vector Engine
     LastArchType = ve
   };
