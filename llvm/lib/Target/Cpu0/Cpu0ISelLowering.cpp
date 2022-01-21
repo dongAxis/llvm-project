@@ -71,12 +71,70 @@ Cpu0TargetLowering::Cpu0TargetLowering(const Cpu0TargetMachine &TM,
   // set .align 2
   // It will emit .align 2 later
   setMinFunctionAlignment(llvm::Align(2));
+
+  setOperationAction(ISD::SDIV, MVT::i32, Expand);
+  setOperationAction(ISD::SREM, MVT::i32, Expand);
+  setOperationAction(ISD::UDIV, MVT::i32, Expand);
+  setOperationAction(ISD::UREM, MVT::i32, Expand);
+
+  setTargetDAGCombine(ISD::SDIVREM);
+  setTargetDAGCombine(ISD::UDIVREM);
 }
 
 const Cpu0TargetLowering *
 Cpu0TargetLowering::create(const Cpu0TargetMachine &TM,
                            const Cpu0Subtarget &STI) {
   return createCpu0SETargetLowering(TM, STI);
+}
+
+static SDValue performDivRemCombine(SDNode *N, SelectionDAG &DAG,
+                                    TargetLowering::DAGCombinerInfo &DCI,
+                                    const Cpu0Subtarget &Subtarget) {
+  if (DCI.isBeforeLegalizeOps())
+    return SDValue();
+
+  EVT Ty = N->getValueType(0);
+  unsigned LO = Cpu0::LO;
+  unsigned HI = Cpu0::HI;
+  unsigned Opc =
+      N->getOpcode() == ISD::SDIVREM ? Cpu0ISD::DivRem : Cpu0ISD::DivRemU;
+
+  SDLoc DL(N);
+  SDValue DivRem =
+      DAG.getNode(Opc, DL, MVT::Glue, N->getOperand(0), N->getOperand(1));
+  SDValue InChain = DAG.getEntryNode();
+  SDValue InGlue = DivRem;
+
+  // Insert MFLO
+  if (N->hasAnyUseOfValue(0)) {
+    SDValue CopyFromLo = DAG.getCopyFromReg(InChain, DL, LO, Ty, InGlue);
+    DAG.ReplaceAllUsesOfValueWith(SDValue(N, 0), CopyFromLo);
+    InChain = CopyFromLo.getValue(1);
+    InGlue = CopyFromLo.getValue(2);
+  }
+
+  // Insert MFHI
+  if (N->hasAnyUseOfValue(1)) {
+    SDValue CopyFromHi = DAG.getCopyFromReg(InChain, DL, HI, Ty, InGlue);
+    DAG.ReplaceAllUsesOfValueWith(SDValue(N, 1), CopyFromHi);
+  }
+
+  return SDValue();
+}
+
+SDValue Cpu0TargetLowering::PerformDAGCombine(SDNode *N,
+                                              DAGCombinerInfo &DCI) const {
+  SelectionDAG &DAG = DCI.DAG;
+  unsigned Opc = N->getOpcode();
+
+  switch (Opc) {
+  default:
+    break;
+  case ISD::SDIVREM:
+  case ISD::UDIVREM:
+    return performDivRemCombine(N, DAG, DCI, Subtarget);
+  }
+  return SDValue();
 }
 
 //===----------------------------------------------------------------------===//

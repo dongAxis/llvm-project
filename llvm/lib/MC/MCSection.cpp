@@ -127,7 +127,7 @@ void MCSection::flushPendingLabels() {
 LLVM_DUMP_METHOD void MCSection::dump() const {
   raw_ostream &OS = errs();
 
-  OS << "<MCSection";
+  OS << "<MCSection(" << Name << ")";
   OS << " Fragments:[\n      ";
   for (auto it = begin(), ie = end(); it != ie; ++it) {
     if (it != begin())

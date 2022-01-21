@@ -16,10 +16,13 @@
 // Cpu0 profiles and nodes
 //===----------------------------------------------------------------------===//
 def SDT_Cpu0Ret : SDTypeProfile<0, 1, [SDTCisInt<0>]>;
+def SDT_Cpu0DivRem : SDTypeProfile<0, 2, [SDTCisInt<0>, SDTCisSameAs<0, 1>]>;
 
 // Return
 def Cpu0Ret : SDNode<"Cpu0ISD::Ret", SDTNone,
                      [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
+def Cpu0DivRem : SDNode<"Cpu0ISD::DivRem", SDT_Cpu0DivRem, [SDNPOutGlue]>;
+def Cpu0DivRemU : SDNode<"Cpu0ISD::DivRemU", SDT_Cpu0DivRem, [SDNPOutGlue]>;
 
 //===----------------------------------------------------------------------===//
 // Cpu0 Instruction Predicate Definitions.
@@ -124,11 +127,11 @@ def store_a : AlignedStore<store>;
 //===----------------------------------------------------------------------===//
 
 // Arithmetic and logical instructions with 3 register operands
-class ArithLogicR<bits<8> op, string instr_asm, SDNode OpNode,
+class ArithLogicR<bits<8> op, string instrAsm, SDNode opNode,
                   InstrItinClass itin, RegisterClass RC, bit isComm = 0>
   : FA<op, (outs GPROut:$ra), (ins RC:$rb, RC:$rc),
-       !strconcat(instr_asm, "\t$ra, $rb, $rc"),
-       [(set GPROut:$ra, (OpNode RC:$rb, RC:$rc))], itin> {
+       !strconcat(instrAsm, "\t$ra, $rb, $rc"),
+       [(set GPROut:$ra, (opNode RC:$rb, RC:$rc))], itin> {
   let shamt = 0;
   let isCommutable = isComm;
 }
@@ -143,12 +146,21 @@ class ArithLogicI<bits<8> op, string instrAsm, SDNode opNode,
 
 // Shitfs
 class ShiftRotateI<bits<8> op, bits<4> isRotate, string instrAsm,
-                   SDNode OpNode, PatFrag PF, Operand ImmOperand,
+                   SDNode opNode, PatFrag PF, Operand ImmOperand,
                    RegisterClass RC>
   : FA<op, (outs GPROut:$ra), (ins RC:$rb, ImmOperand:$shamt),
        !strconcat(instrAsm, "\t$ra, $rb, $shamt"),
-       [(set GPROut:$ra, (OpNode RC:$rb, PF:$shamt))], IIAlu> {
+       [(set GPROut:$ra, (opNode RC:$rb, PF:$shamt))], IIAlu> {
   let rc = 0;
+}
+
+// Shifts with register
+class ShiftRotateR<bits<8> op, bits<4> isRotate, string instrAsm,
+                   SDNode opNode, RegisterClass RC>
+  : FA<op, (outs GPROut:$ra), (ins RC:$rb, RC:$rc),
+           !strconcat(instrAsm, "\t$ra, $rb, $rc"),
+           [(set GPROut:$ra, (opNode RC:$rb, RC:$rc))], IIAlu> {
+  let shamt = 0;
 }
 
 // Load Upper Immedate
@@ -214,6 +226,85 @@ class RetBase<RegisterClass regClass> : JumpFR<0x3c, "ret", regClass> {
   let hasExtraSrcRegAllocReq = 1;
 }
 
+// Multiple
+class Mult<bits<8> op, string instrAsm, InstrItinClass itin,
+           RegisterClass RC, list<Register> DefRegs>
+  : FA<op, (outs), (ins RC:$ra, RC:$rb),
+       !strconcat(instrAsm, "\t$ra, $rb"), [], itin> {
+  let rc = 0;
+  let shamt = 0;
+  let isCommutable = 1;
+  let Defs = DefRegs;
+  let hasSideEffects = 0;
+}
+
+class Mult32<bits<8> op, string instrAsm, InstrItinClass itin>
+  : Mult<op, instrAsm, itin, CPURegs, [HI, LO]>;
+
+// Divid
+class Div<SDNode opNode, bits<8> op, string instrAsm, InstrItinClass itin,
+          RegisterClass RC, list<Register> DefRegs>
+  : FA<op, (outs), (ins RC:$ra, RC:$rb),
+       !strconcat(instrAsm, "\t$ra, $rb"),
+       [(opNode RC:$ra, RC:$rb)], itin> {
+  let rc = 0;
+  let shamt = 0;
+  let Defs = DefRegs;
+}
+
+class Div32<SDNode opNode, bits<8> op, string instrAsm, InstrItinClass itin>
+  : Div<opNode, op, instrAsm, itin, CPURegs, [HI, LO]>;
+
+// Move from LO/HI
+class MoveFromLOHI<bits<8> op, string instrAsm, RegisterClass RC,
+                   list<Register> UseRegs>
+  : FA<op, (outs RC:$ra), (ins),
+       !strconcat(instrAsm, "\t$ra"), [], IIHiLo> {
+  let rb = 0;
+  let rc = 0;
+  let shamt = 0;
+  let Uses = UseRegs;
+  let hasSideEffects = 0;
+}
+
+// Move to LO/HI
+class MoveToLOHI<bits<8> op, string instrAsm, RegisterClass RC,
+                 list<Register> DefRegs>
+  : FA<op, (outs), (ins RC:$ra),
+       !strconcat(instrAsm, "\t$ra"), [], IIHiLo> {
+  let rb = 0;
+  let rc = 0;
+  let shamt = 0;
+  let Defs = DefRegs;
+  let hasSideEffects = 0;
+}
+
+// Move from CO (co-processor 0) Register
+class MoveFromCO<bits<8> op, string instrAsm, RegisterClass RC>
+  : FA<op, (outs), (ins RC:$ra, CORegs:$rb),
+       !strconcat(instrAsm, "\t$ra, $rb"), [], IIAlu> {
+  let rc = 0;
+  let shamt = 0;
+  let hasSideEffects = 0;
+}
+
+class MoveToCO<bits<8> op, string instrAsm, RegisterClass RC>
+  : FA<op, (outs CORegs:$ra), (ins RC:$rb),
+       !strconcat(instrAsm, "\t$ra, $rb"), [], IIAlu> {
+  let rc = 0;
+  let shamt = 0;
+  let hasSideEffects = 0;
+}
+
+// Move From CO register to CO register
+class COMove<bits<8> op, string instrAsm>
+  : FA<op, (outs CORegs:$ra), (ins CORegs:$rb),
+       !strconcat(instrAsm, "\t$ra, $rb"), [], IIAlu> {
+  let rc = 0;
+  let shamt = 0;
+  let hasSideEffects = 0;
+}
+
 //===----------------------------------------------------------------------===//
 // Instruction definition
 //===----------------------------------------------------------------------===//
@@ -232,15 +323,57 @@ def LUi      : LoadUpper<0x0f, "lui", GPROut, uimm16>;
 // Arithmetic Instructions (3-Operand, R-Type)
 let Predicates = [DisableOverflow] in {
 def ADDu     : ArithLogicR<0x11, "addu", add, IIAlu, CPURegs, 1>;
+def SUBu     : ArithLogicR<0x12, "subu", sub, IIAlu, CPURegs>;
 }
 
+let Predicates = [EnableOverflow] in {
+def ADD      : ArithLogicR<0x13, "add", add, IIAlu, CPURegs, 1>;
+def SUB      : ArithLogicR<0x14, "sub", sub, IIAlu, CPURegs>;
+}
+
+def MUL      : ArithLogicR<0x17, "mul", mul, IIImul, CPURegs, 1>;
+def MULT     : Mult32<0x41, "mult", IIImul>;
+def MULTu    : Mult32<0x42, "multu", IIImul>;
+def SDIV     : Div32<Cpu0DivRem, 0x43, "div", IIIdiv>;
+def UDIV     : Div32<Cpu0DivRem, 0x44, "divu", IIIdiv>;
+
 // Shift Instructions
+/////// shift left
 def SHL      : ShiftRotateI<0x1e, 0x00, "shl", shl, immZExt5, shamt, CPURegs>;
+/////// shift right arithmetic
+def SRA      : ShiftRotateI<0x1d, 0x00, "sra", sra, immZExt5, shamt, CPURegs>;
+/////// rotate shift left
+def ROL      : ShiftRotateI<0x1b, 0x01, "rol", rotl, immZExt5, shamt, CPURegs>;
+/////// rotate shift right
+def ROR      : ShiftRotateI<0x1c, 0x01, "ror", rotr, immZExt5, shamt, CPURegs>;
+////// shift right
+def SHR      : ShiftRotateI<0x1f, 0x00, "shr", srl, immZExt5, shamt, CPURegs>;
+
+// shift right arithmetic
+def SRAV     : ShiftRotateR<0x20, 0x00, "srav", sra, CPURegs>;
+// shift left
+def SHLV     : ShiftRotateR<0x21, 0x00, "shlv", shl, CPURegs>;
+// shift right
+def SHRV     : ShiftRotateR<0x22, 0x00, "shrv", srl, CPURegs>;
+// rotate shift left
+def ROLV     : ShiftRotateR<0x23, 0x01, "rolv", rotl, CPURegs>;
+// rotate shift right
+def RORV     : ShiftRotateR<0x24, 0x01, "rorv", rotr, CPURegs>;
 
 // Jump Instructions
 def JR : JumpFR<0x3c, "jr", GPROut>;
 
 def RET : RetBase<GPROut>;
+
+def MFHI     : MoveFromLOHI<0x46, "mfhi", CPURegs, [HI]>;
+def MFLO     : MoveFromLOHI<0x47, "mflo", CPURegs, [LO]>;
+def MTHI     : MoveToLOHI<0x48, "mthi", CPURegs, [HI]>;
+def MTLO     : MoveToLOHI<0x49, "mtlo", CPURegs, [LO]>;
+
+def MFC0     : MoveFromCO<0x50, "mfc0", CPURegs>;
+def MTC0     : MoveToCO<0x51, "mtc0", CPURegs>;
+
+def C0MOVE   : COMove<0x52, "c0mov">;
 
 // No operation Instructions
 let addr = 0 in

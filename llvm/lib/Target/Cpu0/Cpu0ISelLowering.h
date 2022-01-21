@@ -82,6 +82,8 @@ public:
   // This method returns the name of a target specific DAG node.
   const char *getTargetNodeName(unsigned Opcode) const override;
 
+  SDValue PerformDAGCombine(SDNode *N, DAGCombinerInfo &DCI) const override;
+
 protected:
   // ByVal argument information
   struct ByValArgInfo {

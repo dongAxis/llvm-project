@@ -121,7 +121,7 @@ void Cpu0RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   // If MI is not a debug value, make sure Offset fits in the 16-bit immediate
   // field.
   if (!MI.isDebugValue() && !isInt<16>(Offset)) {
-    assert("(!MI.isDebugValue() && !isInt<16>(Offset))");
+    assert(false && "(!MI.isDebugValue() && !isInt<16>(Offset))");
   }
 
   MI.getOperand(i).ChangeToRegister(FrameReg, false);

@@ -145,6 +145,47 @@ unsigned Cpu0SEInstrInfo::loadImmediate(int64_t Imm, MachineBasicBlock &MBB,
   return ATReg;
 }
 
+void Cpu0SEInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
+                                  MachineBasicBlock::iterator I,
+                                  const DebugLoc &DL, MCRegister DestReg,
+                                  MCRegister SrcReg, bool KillSrc) const {
+  unsigned Opc = 0;
+  MCRegister ZeroReg = MCRegister::NoRegister;
+
+  if (Cpu0::CPURegsRegClass.contains(DestReg)) { // copy to CPU reg
+    if (Cpu0::CPURegsRegClass.contains(SrcReg)) {
+      Opc = Cpu0::ADDu;
+      ZeroReg = Cpu0::ZERO;
+    } else if (SrcReg == Cpu0::HI) {
+      Opc = Cpu0::MFHI;
+      SrcReg = MCRegister::NoRegister;
+    } else if (SrcReg == Cpu0::LO) {
+      Opc = Cpu0::MFLO;
+      SrcReg = MCRegister::NoRegister;
+    }
+  } else if (Cpu0::CPURegsRegClass.contains(SrcReg)) { // Copy from Cpu reg
+    if (DestReg == Cpu0::HI) {
+      Opc = Cpu0::MTHI;
+      DestReg = MCRegister::NoRegister;
+    } else if (DestReg == Cpu0::LO) {
+      Opc = Cpu0::MTLO;
+      DestReg = MCRegister::NoRegister;
+    }
+  }
+
+  assert(Opc && "can not copy register");
+
+  MachineInstrBuilder MIB = BuildMI(MBB, I, DL, get(Opc));
+  if (DestReg.isValid())
+    MIB.addReg(DestReg, RegState::Define);
+
+  if (ZeroReg.isValid())
+    MIB.addReg(ZeroReg);
+
+  if (SrcReg.isValid())
+    MIB.addReg(SrcReg, getKillRegState(KillSrc));
+}
+
 const Cpu0InstrInfo *llvm::createCpu0SEInstrInfo(const Cpu0Subtarget &STI) {
   return new Cpu0SEInstrInfo(STI);
 }

@@ -78,6 +78,19 @@ bool Cpu0DAGToDAGISel::SelectAddr(SDNode *Parent, SDValue Addr, SDValue &Base,
     return true;
   }
 
+  // on PIC code Load GA
+  if (Addr.getOpcode() == Cpu0ISD::Wrapper) {
+    Base = Addr.getOperand(0);
+    Offset = Addr.getOperand(1);
+    return true;
+  }
+
+  // static
+  if (TM.getRelocationModel() != Reloc::PIC_)
+    if ((Addr.getOpcode() == ISD::TargetExternalSymbol) ||
+        (Addr.getOpcode() == ISD::TargetGloablAddress))
+      return true;
+
   Base = Addr;
   Offset = CurDAG->getTargetConstant(0, DL, MVT::i32);
   return true;
@@ -100,6 +113,9 @@ void Cpu0DAGToDAGISel::Select(SDNode *N) {
   switch (OpCode) {
   default:
     break;
+  case ISD::GLOBAL_OFFSET_TABLE:
+    ReplaceNode(Node, getGlobalBaseReg());
+    return;
   }
 
   // fall through to the match table
