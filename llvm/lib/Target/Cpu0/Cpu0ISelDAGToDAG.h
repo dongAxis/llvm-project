@@ -45,6 +45,8 @@ protected:
   // decision when generating code for different targets.
   const Cpu0Subtarget *Subtarget;
 
+  SDNode *getGlobalBaseReg();
+
 private:
 #include "Cpu0GenDAGISel.inc"
 

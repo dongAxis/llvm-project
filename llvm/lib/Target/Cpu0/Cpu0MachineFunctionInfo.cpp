@@ -25,4 +25,14 @@ bool FixGlobalBaseReg;
 
 Cpu0MachineFunctionInfo::~Cpu0MachineFunctionInfo() {}
 
+bool Cpu0MachineFunctionInfo::globalBaseRegFixed() const {
+  return FixGlobalBaseReg;
+}
+
+bool Cpu0MachineFunctionInfo::globalBaseRegSet() const { return GlobalBaseReg; }
+
+unsigned Cpu0MachineFunctionInfo::getGlobalBaseReg() {
+  return GlobalBaseReg = Cpu0::GP;
+}
+
 void Cpu0MachineFunctionInfo::anchor() {}

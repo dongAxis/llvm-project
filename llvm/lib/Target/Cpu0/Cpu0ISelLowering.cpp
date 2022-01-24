@@ -18,6 +18,7 @@
 #include "Cpu0Subtarget.h"
 #include "Cpu0TargetMachine.h"
 #include "Cpu0TargetObjectFile.h"
+#include "MCTargetDesc/Cpu0BaseInfo.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
@@ -76,6 +77,7 @@ Cpu0TargetLowering::Cpu0TargetLowering(const Cpu0TargetMachine &TM,
   setOperationAction(ISD::SREM, MVT::i32, Expand);
   setOperationAction(ISD::UDIV, MVT::i32, Expand);
   setOperationAction(ISD::UREM, MVT::i32, Expand);
+  setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
 
   setTargetDAGCombine(ISD::SDIVREM);
   setTargetDAGCombine(ISD::UDIVREM);
@@ -281,4 +283,69 @@ Cpu0TargetLowering::Cpu0CC::Cpu0CC(
     : CCInfo(Info), CallConv(CC), IsO32(IsO32_) {
   // Pre-allocate reserved argument area.
   CCInfo.AllocateStack(reservedArgArea(), Align(1));
+}
+
+SDValue Cpu0TargetLowering::getGlobalReg(SelectionDAG &DAG, EVT Ty) const {
+  Cpu0MachineFunctionInfo *FI =
+      DAG.getMachineFunction().getInfo<Cpu0MachineFunctionInfo>();
+  return DAG.getRegister(FI->getGlobalBaseReg(), Ty);
+}
+
+SDValue Cpu0TargetLowering::getTargetNode(GlobalAddressSDNode *N, EVT Ty,
+                                          SelectionDAG &DAG,
+                                          unsigned Flag) const {
+  return DAG.getTargetGlobalAddress(N->getGlobal(), SDLoc(N), Ty, 0, Flag);
+}
+
+SDValue Cpu0TargetLowering::LowerOperation(SDValue Op,
+                                           SelectionDAG &DAG) const {
+  switch (Op.getOpcode()) {
+  case ISD::GlobalAddress:
+    return LowerGlobalAddress(Op, DAG);
+  }
+  return SDValue();
+}
+
+SDValue Cpu0TargetLowering::LowerGlobalAddress(SDValue Op,
+                                               SelectionDAG &DAG) const {
+  SDLoc DL(Op);
+  const Cpu0TargetObjectFile *TLOF = static_cast<const Cpu0TargetObjectFile *>(
+      getTargetMachine().getObjFileLowering());
+  EVT Ty = Op.getValueType();
+  GlobalAddressSDNode *N = cast<GlobalAddressSDNode>(Op);
+  const GlobalValue *GV = N->getGlobal();
+
+  if (!isa<GlobalObject>(GV))
+    llvm_unreachable("GV should be a GlobalObject");
+
+  const GlobalObject *GO = dyn_cast<GlobalObject>(GV);
+
+  // Non-Pic
+  if (!isPositionIndependent()) {
+    // %gp_rel relocation
+    if (GO && TLOF->IsGlobalInSmallSection(GO, getTargetMachine())) {
+      SDValue GA =
+          DAG.getTargetGlobalAddress(GO, DL, MVT::i32, 0, Cpu0II::MO_GPREL);
+      SDValue GPRelNode =
+          DAG.getNode(Cpu0ISD::GPRel, DL, DAG.getVTList(MVT::i32), GA);
+      SDValue GPReg = DAG.getRegister(Cpu0::GP, MVT::i32);
+      return DAG.getNode(ISD::ADD, DL, MVT::i32, GPReg, GPRelNode);
+    }
+
+    // Non-Pic && Non-Small-Section
+    // %hi/%lo relocation
+    return getAddrNonPIC(N, Ty, DAG);
+  }
+
+  if (GV->hasInternalLinkage() || (GV->hasLocalLinkage() && !isa<Function>(GV)))
+    return getAddrLocal(N, Ty, DAG);
+
+  // large section
+  if (!TLOF->IsGlobalInSmallSection(GO, getTargetMachine()))
+    return getAddrGlobalLargeGOT(
+        N, Ty, DAG, Cpu0II::MO_GOT_HI16, Cpu0II::MO_GOT_LO16,
+        DAG.getEntryNode(),
+        MachinePointerInfo::getGOT(DAG.getMachineFunction()));
+  return getAddrGlobal(N, Ty, DAG, Cpu0II::MO_GOT, DAG.getEntryNode(),
+                       MachinePointerInfo::getGOT(DAG.getMachineFunction()));
 }

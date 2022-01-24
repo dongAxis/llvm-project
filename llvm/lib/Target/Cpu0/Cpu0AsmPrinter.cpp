@@ -218,7 +218,7 @@ void Cpu0AsmPrinter::emitFunctionBodyStart() {
     OutStreamer->emitRawText("\t.set\tnoreorder");
     // Emit .cpload directive if needed.
     if (EmitCPLoad)
-      OutStreamer->EmitRawText(StringRef("\t.cpload\t$t9"));
+      OutStreamer->emitRawText(StringRef("\t.cpload\t$t9"));
     OutStreamer->emitRawText("\t.set\tnomacro");
     if (Cpu0MFI->getEmitNOAT())
       OutStreamer->emitRawText("\t.set\tnoat");
@@ -226,7 +226,7 @@ void Cpu0AsmPrinter::emitFunctionBodyStart() {
     SmallVector<MCInst, 4> MCInsts;
     MCInstLowering.LowerCPLOAD(MCInsts);
     for (MCInst &Inst : MCInsts)
-      OutStreamer->EmitInstruction(*I, getSubtargetInfo());
+      OutStreamer->emitInstruction(Inst, getSubtargetInfo());
   }
 }
 

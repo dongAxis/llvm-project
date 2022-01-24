@@ -26,12 +26,16 @@ public:
   Cpu0MachineFunctionInfo(MachineFunction &MF)
       : MF(MF), SRetReturnReg(0), VarArgsFrameIndex(0), IncomingArgSize(0),
         CallsEhReturn(false), CallsEhDwarf(false), MaxCallFrameSize(0),
-        EmitNOAT(false) {}
+        EmitNOAT(false), GlobalBaseReg(0) {}
 
   ~Cpu0MachineFunctionInfo();
 
   unsigned getSRetReturnReg() const { return SRetReturnReg; }
   void setSRetReturnReg(unsigned Reg) { SRetReturnReg = Reg; }
+
+  bool globalBaseRegFixed() const;
+  bool globalBaseRegSet() const;
+  unsigned getGlobalBaseReg();
 
   int getVarArgsFrameIndex() const { return VarArgsFrameIndex; }
   void setVarArgsFrameIndex(int Index) { VarArgsFrameIndex = Index; }
@@ -82,6 +86,12 @@ private:
   bool EhDataRegFI[2];
   unsigned MaxCallFrameSize;
   bool EmitNOAT;
+
+  // Keeps track of the virtual register initialized for use as the global
+  // base register. This is used for PIC in some PIC relocation models.
+  unsigned GlobalBaseReg;
+
+  int GPFI; // Index of the frame object for restoring $gp
 };
 } // namespace llvm
 

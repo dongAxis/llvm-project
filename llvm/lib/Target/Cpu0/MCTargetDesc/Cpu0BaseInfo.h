@@ -15,8 +15,8 @@
 #ifndef LLVM_LIB_TARGET_CPU0_MCTARGETDESC_CPU0BASEINFO_H
 #define LLVM_LIB_TARGET_CPU0_MCTARGETDESC_CPU0BASEINFO_H
 
-#include "Cpu0MCTargetDesc.h"
 #include "Cpu0FixupKinds.h"
+#include "Cpu0MCTargetDesc.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -36,6 +36,11 @@ enum TOF {
   // during execution. This is different from the above since this flag
   // can only be present in call instructions.
   MO_GOT_CALL,
+
+  // MO_GOT16: Represents the offset into the global offset table at which
+  // the address the relocation entry symbol resides during execution.
+  MO_GOT16,
+  MO_GOT,
 
   // MO_GPREL: Represents the offset from the current gp value to be used
   // for the relocatable object file being produced.

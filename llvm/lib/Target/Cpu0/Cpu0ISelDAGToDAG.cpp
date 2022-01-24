@@ -88,7 +88,7 @@ bool Cpu0DAGToDAGISel::SelectAddr(SDNode *Parent, SDValue Addr, SDValue &Base,
   // static
   if (TM.getRelocationModel() != Reloc::PIC_)
     if ((Addr.getOpcode() == ISD::TargetExternalSymbol) ||
-        (Addr.getOpcode() == ISD::TargetGloablAddress))
+        (Addr.getOpcode() == ISD::TargetGlobalAddress))
       return true;
 
   Base = Addr;
@@ -114,10 +114,20 @@ void Cpu0DAGToDAGISel::Select(SDNode *N) {
   default:
     break;
   case ISD::GLOBAL_OFFSET_TABLE:
-    ReplaceNode(Node, getGlobalBaseReg());
+    ReplaceNode(N, getGlobalBaseReg());
     return;
   }
 
   // fall through to the match table
   SelectCode(N);
+}
+
+// Output the instructions required to put the GOT address into a register.
+SDNode *Cpu0DAGToDAGISel::getGlobalBaseReg() {
+  uint64_t GlobalBaseReg =
+      MF->getInfo<Cpu0MachineFunctionInfo>()->getGlobalBaseReg();
+  return CurDAG
+      ->getRegister(GlobalBaseReg,
+                    getTargetLowering()->getPointerTy(CurDAG->getDataLayout()))
+      .getNode();
 }
