@@ -45,6 +45,13 @@ void Cpu0InstPrinter::printInst(const MCInst *MI, uint64_t Address,
   printAnnotation(O, Annot);
 }
 
+void Cpu0InstPrinter::printJMPTarget(const MCInst *MI, uint64_t Address,
+                                     unsigned OpNo, raw_ostream &O) {
+  const MCOperand &Op = MI->getOperand(OpNo);
+  assert(Op.isImm() && "address should be imm");
+  O << Op.getImm();
+}
+
 void Cpu0InstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
                                    raw_ostream &O) {
   const MCOperand &Op = MI->getOperand(OpNo);
@@ -79,4 +86,14 @@ void Cpu0InstPrinter::printMemOperand(const MCInst *MI, int OpNum,
   O << "(";
   printOperand(MI, OpNum, O);
   O << ")";
+}
+
+void Cpu0InstPrinter::printMemOperandEA(const MCInst *MI, int opNum,
+                                        raw_ostream &O) {
+  // when using stack locations for not load/store instructions
+  // print the same way as all normal 3 operand instructions.
+  printOperand(MI, opNum, O);
+  O << ", ";
+  printOperand(MI, opNum + 1, O);
+  return;
 }

@@ -62,7 +62,7 @@ void LiveIntervalCalc::calculate(LiveInterval &LI, bool TrackSubRegs) {
   const TargetRegisterInfo &TRI = *MRI->getTargetRegisterInfo();
   unsigned Reg = LI.reg();
   for (const MachineOperand &MO : MRI->reg_nodbg_operands(Reg)) {
-    if (!MO.isDef() && !MO.readsReg())
+    if (!MO.isDef() && !MO.readsReg())   // 只处理定义reg的位置。
       continue;
 
     unsigned SubReg = MO.getSubReg();

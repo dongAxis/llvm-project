@@ -18,10 +18,12 @@
 #include "llvm/Target/TargetMachine.h"
 
 namespace llvm {
-  class Cpu0TargetMachine;
-  class FunctionPass;
-}
+class Cpu0TargetMachine;
+class FunctionPass;
 
-#define ENABLE_GPRESTORE  // The $gp register caller saved register enable
+FunctionPass *createCpu0DelJmpPass(Cpu0TargetMachine &TM);
+} // namespace llvm
+
+#define ENABLE_GPRESTORE // The $gp register caller saved register enable
 
 #endif

@@ -148,6 +148,7 @@ public:
   }
 
   bool addInstSelector() override;
+  void addPreEmitPass() override;
 };
 } // end namespace
 
@@ -158,4 +159,12 @@ TargetPassConfig *Cpu0TargetMachine::createPassConfig(PassManagerBase &PM) {
 bool Cpu0PassConfig::addInstSelector() {
   addPass(createCpu0SEISelDAG(getCpu0TargetMachine(), getOptLevel()));
   return false;
+}
+
+// Implemented by targets that want to run passes immediately before machine
+// code is emitted. return true if -print-machineinstrs should print out the
+// code after the passes.
+void Cpu0PassConfig::addPreEmitPass() {
+  Cpu0TargetMachine &TM = getCpu0TargetMachine();
+  addPass(createCpu0DelJmpPass(TM));
 }

@@ -38,9 +38,12 @@ public:
   std::pair<const char *, uint64_t> getMnemonic(const MCInst *MI) override;
 
 private:
+  void printJMPTarget(const MCInst *MI, uint64_t Address, unsigned OpNo,
+                      raw_ostream &O);
   void printOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printUnsignedImm(const MCInst *MI, int opNum, raw_ostream &O);
   void printMemOperand(const MCInst *MI, int opNum, raw_ostream &O);
+  void printMemOperandEA(const MCInst *MI, int opNum, raw_ostream &O);
 };
 
 } // end namespace llvm

@@ -108,6 +108,12 @@ class TwoAddressInstructionPass : public MachineFunctionPass {
   // Set of already processed instructions in the current block.
   SmallPtrSet<MachineInstr*, 8> Processed;
 
+  // SrcRegMap & DstRegMap
+  // 维护了一组关系 reg <---> reg'
+  // SrcRegMap是维护了从dst到src的关系线；
+  // DstRegMap是维护了从src到dst的关系。
+  // 因此两个map是维护了一组不同方向但是相同的关系。
+
   // A map from virtual registers to physical registers which are likely targets
   // to be coalesced to due to copies from physical registers to virtual
   // registers. e.g. v1024 = move r0.
@@ -260,7 +266,7 @@ bool TwoAddressInstructionPass::noUseAfterLastDef(Register Reg, unsigned Dist,
       LastDef = DI->second;
   }
 
-  return !(LastUse > LastDef && LastUse < Dist);
+  return !(LastUse > LastDef && LastUse < Dist);   // ---> LastUse <= LastDef || LastUse >= Dist
 }
 
 /// Return true if the specified MI is a copy instruction or an extract_subreg
@@ -290,7 +296,7 @@ static bool isCopyToReg(MachineInstr &MI, const TargetInstrInfo *TII,
 /// given instruction, is killed by the given instruction.
 static bool isPlainlyKilled(MachineInstr *MI, Register Reg,
                             LiveIntervals *LIS) {
-  if (LIS && Reg.isVirtual() && !LIS->isNotInMIMap(*MI)) {
+  if (LIS && Reg.isVirtual() && !LIS->isNotInMIMap(*MI)) {     // 如果是虚拟寄存器， 并且存在LIS， 那么使用如下的条件判断。
     // FIXME: Sometimes tryInstructionTransform() will add instructions and
     // test whether they can be folded before keeping them. In this case it
     // sets a kill before recursively calling tryInstructionTransform() again.
@@ -306,7 +312,7 @@ static bool isPlainlyKilled(MachineInstr *MI, Register Reg,
     SlotIndex useIdx = LIS->getInstructionIndex(*MI);
     LiveInterval::const_iterator I = LI.find(useIdx);
     assert(I != LI.end() && "Reg must be live-in to use.");
-    return !I->end.isBlock() && SlotIndex::isSameInstr(I->end, useIdx);
+    return !I->end.isBlock() && SlotIndex::isSameInstr(I->end, useIdx);   // 当前block不是
   }
 
   return MI->killsRegister(Reg);
@@ -381,7 +387,7 @@ findOnlyInterestingUse(Register Reg, MachineBasicBlock *MBB,
                        bool &IsCopy, Register &DstReg, bool &IsDstPhys,
                        LiveIntervals *LIS) {
   MachineOperand *UseOp = nullptr;
-  for (MachineOperand &MO : MRI->use_nodbg_operands(Reg)) {
+  for (MachineOperand &MO : MRI->use_nodbg_operands(Reg)) {    // 找到所有的使用点
     MachineInstr *MI = MO.getParent();
     if (MI->getParent() != MBB)
       return nullptr;
@@ -394,16 +400,16 @@ findOnlyInterestingUse(Register Reg, MachineBasicBlock *MBB,
 
   Register SrcReg;
   bool IsSrcPhys;
-  if (isCopyToReg(UseMI, TII, SrcReg, DstReg, IsSrcPhys, IsDstPhys)) {
+  if (isCopyToReg(UseMI, TII, SrcReg, DstReg, IsSrcPhys, IsDstPhys)) {  // 如果是copy指令， 那么这个指令是我们感兴趣的。因为可能会产生更多的寄存器等价
     IsCopy = true;
     return &UseMI;
   }
   IsDstPhys = false;
-  if (isTwoAddrUse(UseMI, Reg, DstReg)) {
+  if (isTwoAddrUse(UseMI, Reg, DstReg)) {    // 如果是two-addr，那么当前reg可能和其他的def-reg是一样的， 那么我们返回这个reg，作为下一轮的备选。
     IsDstPhys = DstReg.isPhysical();
     return &UseMI;
   }
-  if (UseMI.isCommutable()) {
+  if (UseMI.isCommutable()) {    // 如果当前指令是可交换的，再配合上two-addr， 那么有可能会造成公用寄存器的事实。
     unsigned Src1 = TargetInstrInfo::CommuteAnyOperandIndex;
     unsigned Src2 = UseMI.getOperandNo(UseOp);
     if (TII->findCommutedOpIndices(UseMI, Src1, Src2)) {
@@ -524,13 +530,33 @@ static bool regOverlapsSet(const SmallVectorImpl<Register> &Set, Register Reg,
 
 /// Return true if it's potentially profitable to commute the two-address
 /// instruction that's being processed.
-bool TwoAddressInstructionPass::isProfitableToCommute(Register RegA,
-                                                      Register RegB,
-                                                      Register RegC,
+bool TwoAddressInstructionPass::isProfitableToCommute(Register RegA,   // DstOpReg
+                                                      Register RegB,   // BaseOpReg
+                                                      Register RegC,   // OtherOpReg
                                                       MachineInstr *MI,
                                                       unsigned Dist) {
   if (OptLevel == CodeGenOpt::None)
     return false;
+
+  // 在当前函数中，我们需要保持住一个中心思想， 我们期望在当前指令MI和对应的def指令之间没有任何的use。
+  // 比如对于下面的case：
+  // %reg1028 = EXTRACT_SUBREG killed %reg1027, 1
+  // %reg1029 = COPY %reg1028               ======> COPY1
+  // %reg1029 = SHR8ri %reg1029, 7, implicit dead %eflags
+  // insert => %reg1030 = COPY %reg1028     ======> COPY2
+  // %reg1030 = ADD8rr killed %reg1028, killed %reg1029, implicit dead %eflags
+  // 假设COPY1中允许reg1029和reg1028等价， 那么也就意味着
+  // 在指令： %reg1029 = SHR8ri %reg1029, 7, implicit dead %eflags 中如果当前指令改变了reg1029的值， 那么这条指令后面所有的指令
+  // reg1028 ！= reg1029， 那么这样在reg1030来说其对应的寄存器和之前分配的就不是同一个。
+  // 但是如果%reg1030指令做个交换：
+  // %reg1028 = EXTRACT_SUBREG killed %reg1027, 1
+  // %reg1029 = COPY %reg1028
+  // %reg1029 = SHR8ri %reg1029, 7, implicit dead %eflags
+  // insert => %reg1030 = COPY %reg1029
+  // %reg1030 = ADD8rr killed %reg1029, killed %reg1028, implicit dead %eflags
+  // 我们其实可以将reg1028 reg1029 reg1030三个虚拟寄存器同时分配一个物理寄存器。这样就可以提高寄存器的使用率。
+  // 但是需要遵守上面的结论：
+  //     当前指令MI和对应的def指令之间没有任何的use
 
   // Determine if it's profitable to commute this two address instruction. In
   // general, we want no uses between this instruction and the definition of
@@ -567,6 +593,7 @@ bool TwoAddressInstructionPass::isProfitableToCommute(Register RegA,
   if (ToRegA) {
     MCRegister FromRegB = getMappedReg(RegB, SrcRegMap);
     MCRegister FromRegC = getMappedReg(RegC, SrcRegMap);
+    // CompB代表regB和regA是否相互alias或者相等。
     bool CompB = FromRegB && regsAreCompatible(FromRegB, ToRegA, TRI);
     bool CompC = FromRegC && regsAreCompatible(FromRegC, ToRegA, TRI);
 
@@ -574,6 +601,10 @@ bool TwoAddressInstructionPass::isProfitableToCommute(Register RegA,
     // -RegB is not tied to a register and RegC is compatible with RegA.
     // -RegB is tied to the wrong physical register, but RegC is.
     // -RegB is tied to the wrong physical register, and RegC isn't tied.
+    // 如果FromRegB不是物理寄存器， 并且RegC和RegA等价。
+    // 或者
+    // RegB物理寄存器， 但是和RegA不对等， 并且regC不是物理寄存器或者regC===RegA
+    // 在这个时候可以调换对regB和regC做交换。
     if ((!FromRegB && CompC) || (FromRegB && !CompB && (!FromRegC || CompC)))
       return true;
     // Don't compute if any of the following are true:
@@ -583,6 +614,8 @@ bool TwoAddressInstructionPass::isProfitableToCommute(Register RegA,
     if ((!FromRegC && CompB) || (FromRegC && !CompC && (!FromRegB || CompB)))
       return false;
   }
+
+  // 从这个位置开始RegA是虚拟寄存器。
 
   // If there is a use of RegC between its last def (could be livein) and this
   // instruction, then bail.
@@ -636,6 +669,7 @@ bool TwoAddressInstructionPass::commuteInstruction(MachineInstr *MI,
                                                    unsigned Dist) {
   Register RegC = MI->getOperand(RegCIdx).getReg();
   LLVM_DEBUG(dbgs() << "2addr: COMMUTING  : " << *MI);
+  // 使用交换律， 将MI转成新指令。
   MachineInstr *NewMI = TII->commuteInstruction(*MI, false, RegBIdx, RegCIdx);
 
   if (NewMI == nullptr) {
@@ -741,7 +775,7 @@ void TwoAddressInstructionPass::scanUses(Register DstReg) {
       VirtRegPairs.push_back(NewReg);
       break;
     }
-    SrcRegMap[NewReg] = Reg;
+    SrcRegMap[NewReg] = Reg;       // 保存当前reg的映射关系。
     VirtRegPairs.push_back(NewReg);
     Reg = NewReg;
   }
@@ -877,7 +911,7 @@ bool TwoAddressInstructionPass::rescheduleMIBelowKill(
   while (End != MBB->end()) {
     End = skipDebugInstructionsForward(End, MBB->end());
     if (End->isCopy() && regOverlapsSet(Defs, End->getOperand(1).getReg(), TRI))
-      Defs.push_back(End->getOperand(0).getReg());
+      Defs.push_back(End->getOperand(0).getReg());    // 把所有和DefReg相关的其他寄存器都取出来， 塞入Defs中。注意必须是连续的COPY。不允许是间断的。
     else
       break;
     ++End;
@@ -905,16 +939,16 @@ bool TwoAddressInstructionPass::rescheduleMIBelowKill(
       if (!MOReg)
         continue;
       if (MO.isDef()) {
-        if (regOverlapsSet(Uses, MOReg, TRI))
+        if (regOverlapsSet(Uses, MOReg, TRI))                     // 当前MOReg在之前出现了， 并被某条具体指令使用了。
           // Physical register use would be clobbered.
           return false;
-        if (!MO.isDead() && regOverlapsSet(Defs, MOReg, TRI))
+        if (!MO.isDead() && regOverlapsSet(Defs, MOReg, TRI))     // 后续还有人继续在使用MO；但是MO对应的reg在之前就被定义了。
           // May clobber a physical register def.
           // FIXME: This may be too conservative. It's ok if the instruction
           // is sunken completely below the use.
           return false;
       } else {
-        if (regOverlapsSet(Defs, MOReg, TRI))
+        if (regOverlapsSet(Defs, MOReg, TRI))                     // 如果之前被定义了， 但是现在被使用了。
           return false;
         bool isKill =
             MO.isKill() || (LIS && isPlainlyKilled(&OtherMI, MOReg, LIS));
@@ -1157,7 +1191,7 @@ bool TwoAddressInstructionPass::tryInstructionCommute(MachineInstr *MI,
   Register BaseOpReg = MI->getOperand(BaseOpIdx).getReg();
   unsigned OpsNum = MI->getDesc().getNumOperands();
   unsigned OtherOpIdx = MI->getDesc().getNumDefs();
-  for (; OtherOpIdx < OpsNum; OtherOpIdx++) {
+  for (; OtherOpIdx < OpsNum; OtherOpIdx++) {    // 遍历所有的ops
     // The call of findCommutedOpIndices below only checks if BaseOpIdx
     // and OtherOpIdx are commutable, it does not really search for
     // other commutable operands and does not change the values of passed
@@ -1172,7 +1206,7 @@ bool TwoAddressInstructionPass::tryInstructionCommute(MachineInstr *MI,
     // If OtherOp dies but BaseOp does not, swap the OtherOp and BaseOp
     // operands. This makes the live ranges of DstOp and OtherOp joinable.
     bool OtherOpKilled = isKilled(*MI, OtherOpReg, MRI, TII, LIS, false);
-    bool DoCommute = !BaseOpKilled && OtherOpKilled;
+    bool DoCommute = !BaseOpKilled && OtherOpKilled; // 交换之后other可以和dst使用同一个reg， 这样延长了声明周期。
 
     if (!DoCommute &&
         isProfitableToCommute(DstOpReg, BaseOpReg, OtherOpReg, MI, Dist)) {

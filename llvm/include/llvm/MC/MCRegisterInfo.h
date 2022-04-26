@@ -674,6 +674,7 @@ inline bool MCRegisterInfo::isSuperRegister(MCRegister RegA, MCRegister RegB) co
 
 // MCRegUnitIterator enumerates a list of register units for Reg. The list is
 // in ascending numerical order.
+// https://lists.llvm.org/pipermail/llvm-dev/2012-May/050177.html
 class MCRegUnitIterator : public MCRegisterInfo::DiffListIterator {
 public:
   /// MCRegUnitIterator - Create an iterator that traverses the register units
