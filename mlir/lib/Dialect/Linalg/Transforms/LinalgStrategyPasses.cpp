@@ -31,6 +31,7 @@
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "mlir/Transforms/LoopInvariantCodeMotionUtils.h"
 #include "mlir/Transforms/Passes.h"
 
 using namespace mlir;
@@ -338,14 +339,9 @@ struct LinalgStrategyEnablePass
       return signalPassFailure();
 
     if (options.licm) {
-      if (funcOp
-              ->walk([&](LoopLikeOpInterface loopLike) {
-                if (failed(moveLoopInvariantCode(loopLike)))
-                  return WalkResult::interrupt();
-                return WalkResult::advance();
-              })
-              .wasInterrupted())
-        return signalPassFailure();
+      funcOp->walk([&](LoopLikeOpInterface loopLike) {
+        moveLoopInvariantCode(loopLike);
+      });
     }
 
     // Gathers all innermost loops through a post order pruned walk.
@@ -362,7 +358,7 @@ struct LinalgStrategyEnablePass
       hoistRedundantVectorTransfersOnTensor(funcOp);
 
     // Run CSE to cleanup after canonicalization.
-    OpPassManager dynamicPM("builtin.func");
+    OpPassManager dynamicPM("func.func");
     dynamicPM.addPass(createCSEPass());
     if (failed(runPipeline(dynamicPM, funcOp)))
       return signalPassFailure();
