@@ -57,6 +57,7 @@ bool WebAssemblyTargetInfo::hasFeature(StringRef Feature) const {
       .Case("tail-call", HasTailCall)
       .Case("reference-types", HasReferenceTypes)
       .Case("extended-const", HasExtendedConst)
+      .Case("security-mode", HasSecurityMode)
       .Default(false);
 }
 
@@ -249,6 +250,14 @@ bool WebAssemblyTargetInfo::handleTargetFeatures(
     }
     if (Feature == "-extended-const") {
       HasExtendedConst = false;
+      continue;
+    }
+    if (Feature == "+security-mode") {
+      HasSecurityMode = true;
+      continue;
+    }
+    if (Feature == "-security-mode") {
+      HasSecurityMode = false;
       continue;
     }
 

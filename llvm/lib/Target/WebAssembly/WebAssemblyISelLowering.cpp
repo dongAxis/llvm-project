@@ -561,7 +561,7 @@ LowerCallResults(MachineInstr &CallResults, DebugLoc DL, MachineBasicBlock *BB,
   // CALL_INDIRECT takes an i32, but in wasm64 we represent function pointers
   // as 64-bit for uniformity with other pointer types.
   // See also: WebAssemblyFastISel::selectCall
-  if (IsIndirect && MF.getSubtarget<WebAssemblySubtarget>().hasAddr64()) {
+  if (IsIndirect && MF.getSubtarget<WebAssemblySubtarget>().hasAddr64() && !Subtarget->hasSecurityMode()) {
     Register Reg32 =
         MF.getRegInfo().createVirtualRegister(&WebAssembly::I32RegClass);
     auto &FnPtr = CallParams.getOperand(0);

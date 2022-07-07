@@ -71,6 +71,10 @@ def FeatureExtendedConst :
       SubtargetFeature<"extended-const", "HasExtendedConst", "true",
                        "Enable extended const expressions">;
 
+def FeatureSecurityMode :
+      SubtargetFeature<"security-mode", "HasSecurityMode", "true",
+                       "Enable security mode">;
+
 //===----------------------------------------------------------------------===//
 // Architectures.
 //===----------------------------------------------------------------------===//
