@@ -35,8 +35,7 @@ using namespace llvm;
 
 WebAssemblyInstrInfo::WebAssemblyInstrInfo(const WebAssemblySubtarget &STI)
     : WebAssemblyGenInstrInfo(WebAssembly::ADJCALLSTACKDOWN,
-                              WebAssembly::ADJCALLSTACKUP,
-                              WebAssembly::CATCHRET),
+                              WebAssembly::ADJCALLSTACKUP),
       RI(STI.getTargetTriple()) {}
 
 bool WebAssemblyInstrInfo::isReallyTriviallyReMaterializable(
@@ -75,12 +74,6 @@ void WebAssemblyInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
     CopyOpcode = WebAssembly::COPY_F32;
   else if (RC == &WebAssembly::F64RegClass)
     CopyOpcode = WebAssembly::COPY_F64;
-  else if (RC == &WebAssembly::V128RegClass)
-    CopyOpcode = WebAssembly::COPY_V128;
-  else if (RC == &WebAssembly::FUNCREFRegClass)
-    CopyOpcode = WebAssembly::COPY_FUNCREF;
-  else if (RC == &WebAssembly::EXTERNREFRegClass)
-    CopyOpcode = WebAssembly::COPY_EXTERNREF;
   else
     llvm_unreachable("Unexpected register class");
 

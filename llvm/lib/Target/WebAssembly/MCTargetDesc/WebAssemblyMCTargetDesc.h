@@ -165,9 +165,6 @@ inline unsigned GetDefaultP2AlignAny(unsigned Opc) {
   WASM_LOAD_STORE(ATOMIC_RMW8_U_XCHG_I64)
   WASM_LOAD_STORE(ATOMIC_RMW8_U_CMPXCHG_I32)
   WASM_LOAD_STORE(ATOMIC_RMW8_U_CMPXCHG_I64)
-  WASM_LOAD_STORE(LOAD8_SPLAT)
-  WASM_LOAD_STORE(LOAD_LANE_I8x16)
-  WASM_LOAD_STORE(STORE_LANE_I8x16)
   return 0;
   WASM_LOAD_STORE(LOAD16_S_I32)
   WASM_LOAD_STORE(LOAD16_U_I32)
@@ -193,9 +190,6 @@ inline unsigned GetDefaultP2AlignAny(unsigned Opc) {
   WASM_LOAD_STORE(ATOMIC_RMW16_U_XCHG_I64)
   WASM_LOAD_STORE(ATOMIC_RMW16_U_CMPXCHG_I32)
   WASM_LOAD_STORE(ATOMIC_RMW16_U_CMPXCHG_I64)
-  WASM_LOAD_STORE(LOAD16_SPLAT)
-  WASM_LOAD_STORE(LOAD_LANE_I16x8)
-  WASM_LOAD_STORE(STORE_LANE_I16x8)
   return 1;
   WASM_LOAD_STORE(LOAD_I32)
   WASM_LOAD_STORE(LOAD_F32)
@@ -224,10 +218,6 @@ inline unsigned GetDefaultP2AlignAny(unsigned Opc) {
   WASM_LOAD_STORE(ATOMIC_RMW32_U_CMPXCHG_I64)
   WASM_LOAD_STORE(MEMORY_ATOMIC_NOTIFY)
   WASM_LOAD_STORE(MEMORY_ATOMIC_WAIT32)
-  WASM_LOAD_STORE(LOAD32_SPLAT)
-  WASM_LOAD_STORE(LOAD_ZERO_I32x4)
-  WASM_LOAD_STORE(LOAD_LANE_I32x4)
-  WASM_LOAD_STORE(STORE_LANE_I32x4)
   return 2;
   WASM_LOAD_STORE(LOAD_I64)
   WASM_LOAD_STORE(LOAD_F64)
@@ -243,20 +233,7 @@ inline unsigned GetDefaultP2AlignAny(unsigned Opc) {
   WASM_LOAD_STORE(ATOMIC_RMW_XCHG_I64)
   WASM_LOAD_STORE(ATOMIC_RMW_CMPXCHG_I64)
   WASM_LOAD_STORE(MEMORY_ATOMIC_WAIT64)
-  WASM_LOAD_STORE(LOAD64_SPLAT)
-  WASM_LOAD_STORE(LOAD_EXTEND_S_I16x8)
-  WASM_LOAD_STORE(LOAD_EXTEND_U_I16x8)
-  WASM_LOAD_STORE(LOAD_EXTEND_S_I32x4)
-  WASM_LOAD_STORE(LOAD_EXTEND_U_I32x4)
-  WASM_LOAD_STORE(LOAD_EXTEND_S_I64x2)
-  WASM_LOAD_STORE(LOAD_EXTEND_U_I64x2)
-  WASM_LOAD_STORE(LOAD_ZERO_I64x2)
-  WASM_LOAD_STORE(LOAD_LANE_I64x2)
-  WASM_LOAD_STORE(STORE_LANE_I64x2)
   return 3;
-  WASM_LOAD_STORE(LOAD_V128)
-  WASM_LOAD_STORE(STORE_V128)
-    return 4;
   default:
     return -1;
   }
@@ -272,35 +249,7 @@ inline unsigned GetDefaultP2Align(unsigned Opc) {
 }
 
 inline bool isArgument(unsigned Opc) {
-  switch (Opc) {
-  case WebAssembly::ARGUMENT_i32:
-  case WebAssembly::ARGUMENT_i32_S:
-  case WebAssembly::ARGUMENT_i64:
-  case WebAssembly::ARGUMENT_i64_S:
-  case WebAssembly::ARGUMENT_f32:
-  case WebAssembly::ARGUMENT_f32_S:
-  case WebAssembly::ARGUMENT_f64:
-  case WebAssembly::ARGUMENT_f64_S:
-  case WebAssembly::ARGUMENT_v16i8:
-  case WebAssembly::ARGUMENT_v16i8_S:
-  case WebAssembly::ARGUMENT_v8i16:
-  case WebAssembly::ARGUMENT_v8i16_S:
-  case WebAssembly::ARGUMENT_v4i32:
-  case WebAssembly::ARGUMENT_v4i32_S:
-  case WebAssembly::ARGUMENT_v2i64:
-  case WebAssembly::ARGUMENT_v2i64_S:
-  case WebAssembly::ARGUMENT_v4f32:
-  case WebAssembly::ARGUMENT_v4f32_S:
-  case WebAssembly::ARGUMENT_v2f64:
-  case WebAssembly::ARGUMENT_v2f64_S:
-  case WebAssembly::ARGUMENT_funcref:
-  case WebAssembly::ARGUMENT_funcref_S:
-  case WebAssembly::ARGUMENT_externref:
-  case WebAssembly::ARGUMENT_externref_S:
-    return true;
-  default:
     return false;
-  }
 }
 
 inline bool isCopy(unsigned Opc) {
@@ -313,12 +262,6 @@ inline bool isCopy(unsigned Opc) {
   case WebAssembly::COPY_F32_S:
   case WebAssembly::COPY_F64:
   case WebAssembly::COPY_F64_S:
-  case WebAssembly::COPY_V128:
-  case WebAssembly::COPY_V128_S:
-  case WebAssembly::COPY_FUNCREF:
-  case WebAssembly::COPY_FUNCREF_S:
-  case WebAssembly::COPY_EXTERNREF:
-  case WebAssembly::COPY_EXTERNREF_S:
     return true;
   default:
     return false;
@@ -335,12 +278,6 @@ inline bool isTee(unsigned Opc) {
   case WebAssembly::TEE_F32_S:
   case WebAssembly::TEE_F64:
   case WebAssembly::TEE_F64_S:
-  case WebAssembly::TEE_V128:
-  case WebAssembly::TEE_V128_S:
-  case WebAssembly::TEE_FUNCREF:
-  case WebAssembly::TEE_FUNCREF_S:
-  case WebAssembly::TEE_EXTERNREF:
-  case WebAssembly::TEE_EXTERNREF_S:
     return true;
   default:
     return false;
@@ -351,8 +288,6 @@ inline bool isCallDirect(unsigned Opc) {
   switch (Opc) {
   case WebAssembly::CALL:
   case WebAssembly::CALL_S:
-  case WebAssembly::RET_CALL:
-  case WebAssembly::RET_CALL_S:
     return true;
   default:
     return false;
@@ -363,8 +298,6 @@ inline bool isCallIndirect(unsigned Opc) {
   switch (Opc) {
   case WebAssembly::CALL_INDIRECT:
   case WebAssembly::CALL_INDIRECT_S:
-  case WebAssembly::RET_CALL_INDIRECT:
-  case WebAssembly::RET_CALL_INDIRECT_S:
     return true;
   default:
     return false;
@@ -384,35 +317,11 @@ inline bool isBrTable(const MachineInstr &MI) {
 }
 
 inline bool isMarker(unsigned Opc) {
-  switch (Opc) {
-  case WebAssembly::BLOCK:
-  case WebAssembly::BLOCK_S:
-  case WebAssembly::END_BLOCK:
-  case WebAssembly::END_BLOCK_S:
-  case WebAssembly::LOOP:
-  case WebAssembly::LOOP_S:
-  case WebAssembly::END_LOOP:
-  case WebAssembly::END_LOOP_S:
-  case WebAssembly::TRY:
-  case WebAssembly::TRY_S:
-  case WebAssembly::END_TRY:
-  case WebAssembly::END_TRY_S:
-    return true;
-  default:
     return false;
-  }
 }
 
 inline bool isCatch(unsigned Opc) {
-  switch (Opc) {
-  case WebAssembly::CATCH:
-  case WebAssembly::CATCH_S:
-  case WebAssembly::CATCH_ALL:
-  case WebAssembly::CATCH_ALL_S:
-    return true;
-  default:
     return false;
-  }
 }
 
 } // end namespace WebAssembly

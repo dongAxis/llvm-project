@@ -55,8 +55,6 @@ private:
 
   AtomicExpansionKind shouldExpandAtomicRMWInIR(AtomicRMWInst *) const override;
   bool shouldScalarizeBinop(SDValue VecOp) const override;
-  FastISel *createFastISel(FunctionLoweringInfo &FuncInfo,
-                           const TargetLibraryInfo *LibInfo) const override;
   MVT getScalarShiftAmountTy(const DataLayout &DL, EVT) const override;
   MachineBasicBlock *
   EmitInstrWithCustomInserter(MachineInstr &MI,
@@ -150,11 +148,6 @@ private:
   PerformDAGCombine(SDNode *N,
                     TargetLowering::DAGCombinerInfo &DCI) const override;
 };
-
-namespace WebAssembly {
-FastISel *createFastISel(FunctionLoweringInfo &funcInfo,
-                         const TargetLibraryInfo *libInfo);
-} // end namespace WebAssembly
 
 } // end namespace llvm
 

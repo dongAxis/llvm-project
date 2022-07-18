@@ -164,12 +164,6 @@ static wasm::ValType getType(const TargetRegisterClass *RC) {
     return wasm::ValType::F32;
   if (RC == &WebAssembly::F64RegClass)
     return wasm::ValType::F64;
-  if (RC == &WebAssembly::V128RegClass)
-    return wasm::ValType::V128;
-  if (RC == &WebAssembly::EXTERNREFRegClass)
-    return wasm::ValType::EXTERNREF;
-  if (RC == &WebAssembly::FUNCREFRegClass)
-    return wasm::ValType::FUNCREF;
   llvm_unreachable("Unexpected register class");
 }
 
@@ -230,11 +224,6 @@ void WebAssemblyMCInstLower::lower(const MachineInstr *MI,
           // doesn't count as a param.
           if (WebAssembly::isCallIndirect(MI->getOpcode()))
             Params.pop_back();
-
-          // return_call_indirect instructions have the return type of the
-          // caller
-          if (MI->getOpcode() == WebAssembly::RET_CALL_INDIRECT)
-            getFunctionReturns(MI, Returns);
 
           MCOp = lowerTypeIndexOperand(std::move(Returns), std::move(Params));
           break;
@@ -301,20 +290,20 @@ static void removeRegisterOperands(const MachineInstr *MI, MCInst &OutMI) {
   // until this transition point.
   // FIXME: we are not processing inline assembly, which contains register
   // operands, because it is used by later target generic code.
-  if (MI->isDebugInstr() || MI->isLabel() || MI->isInlineAsm())
-    return;
+  // if (MI->isDebugInstr() || MI->isLabel() || MI->isInlineAsm())
+  //   return;
 
-  // Transform to _S instruction.
-  auto RegOpcode = OutMI.getOpcode();
-  auto StackOpcode = WebAssembly::getStackOpcode(RegOpcode);
-  assert(StackOpcode != -1 && "Failed to stackify instruction");
-  OutMI.setOpcode(StackOpcode);
+  // // Transform to _S instruction.
+  // auto RegOpcode = OutMI.getOpcode();
+  // auto StackOpcode = WebAssembly::getStackOpcode(RegOpcode);
+  // assert(StackOpcode != -1 && "Failed to stackify instruction");
+  // OutMI.setOpcode(StackOpcode);
 
-  // Remove register operands.
-  for (auto I = OutMI.getNumOperands(); I; --I) {
-    auto &MO = OutMI.getOperand(I - 1);
-    if (MO.isReg()) {
-      OutMI.erase(&MO);
-    }
-  }
+  // // Remove register operands.
+  // for (auto I = OutMI.getNumOperands(); I; --I) {
+  //   auto &MO = OutMI.getOperand(I - 1);
+  //   if (MO.isReg()) {
+  //     OutMI.erase(&MO);
+  //   }
+  // }
 }

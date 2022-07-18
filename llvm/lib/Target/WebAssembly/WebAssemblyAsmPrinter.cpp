@@ -599,29 +599,6 @@ void WebAssemblyAsmPrinter::emitInstruction(const MachineInstr *MI) {
   LLVM_DEBUG(dbgs() << "EmitInstruction: " << *MI << '\n');
 
   switch (MI->getOpcode()) {
-  case WebAssembly::ARGUMENT_i32:
-  case WebAssembly::ARGUMENT_i32_S:
-  case WebAssembly::ARGUMENT_i64:
-  case WebAssembly::ARGUMENT_i64_S:
-  case WebAssembly::ARGUMENT_f32:
-  case WebAssembly::ARGUMENT_f32_S:
-  case WebAssembly::ARGUMENT_f64:
-  case WebAssembly::ARGUMENT_f64_S:
-  case WebAssembly::ARGUMENT_v16i8:
-  case WebAssembly::ARGUMENT_v16i8_S:
-  case WebAssembly::ARGUMENT_v8i16:
-  case WebAssembly::ARGUMENT_v8i16_S:
-  case WebAssembly::ARGUMENT_v4i32:
-  case WebAssembly::ARGUMENT_v4i32_S:
-  case WebAssembly::ARGUMENT_v2i64:
-  case WebAssembly::ARGUMENT_v2i64_S:
-  case WebAssembly::ARGUMENT_v4f32:
-  case WebAssembly::ARGUMENT_v4f32_S:
-  case WebAssembly::ARGUMENT_v2f64:
-  case WebAssembly::ARGUMENT_v2f64_S:
-    // These represent values which are live into the function entry, so there's
-    // no instruction to emit.
-    break;
   case WebAssembly::FALLTHROUGH_RETURN: {
     // These instructions represent the implicit return at the end of a
     // function body.

@@ -45,15 +45,13 @@ multiclass WebAssemblyLoad<WebAssemblyRegClass rc, string Name, int Opcode,
   let mayLoad = 1, UseNamedOperandTable = 1 in {
   defm "_A32": I<(outs rc:$dst),
                  (ins P2Align:$p2align, offset32_op:$off, I32:$addr),
-                 (outs), (ins P2Align:$p2align, offset32_op:$off),
                  [], !strconcat(Name, "\t$dst, ${off}(${addr})${p2align}"),
-                 !strconcat(Name, "\t${off}${p2align}"), Opcode, false>,
+                 Opcode, false>,
                Requires<reqs>;
   defm "_A64": I<(outs rc:$dst),
                  (ins P2Align:$p2align, offset64_op:$off, I64:$addr),
-                 (outs), (ins P2Align:$p2align, offset64_op:$off),
                  [], !strconcat(Name, "\t$dst, ${off}(${addr})${p2align}"),
-                 !strconcat(Name, "\t${off}${p2align}"), Opcode, true>,
+                 Opcode, true>,
                Requires<reqs>;
   }
 }
@@ -241,18 +239,16 @@ multiclass WebAssemblyStore<WebAssemblyRegClass rc, string Name, int Opcode,
   let mayStore = 1, UseNamedOperandTable = 1 in
   defm "_A32" : I<(outs),
                   (ins P2Align:$p2align, offset32_op:$off, I32:$addr, rc:$val),
-                  (outs),
-                  (ins P2Align:$p2align, offset32_op:$off), [],
+                  [],
                   !strconcat(Name, "\t${off}(${addr})${p2align}, $val"),
-                  !strconcat(Name, "\t${off}${p2align}"), Opcode, false>,
+                  Opcode, false>,
                 Requires<reqs>;
   let mayStore = 1, UseNamedOperandTable = 1 in
   defm "_A64" : I<(outs),
                   (ins P2Align:$p2align, offset64_op:$off, I64:$addr, rc:$val),
-                  (outs),
-                  (ins P2Align:$p2align, offset64_op:$off), [],
+                  [],
                   !strconcat(Name, "\t${off}(${addr})${p2align}, $val"),
-                  !strconcat(Name, "\t${off}${p2align}"), Opcode, true>,
+                  Opcode, true>,
                 Requires<reqs>;
 }
 
@@ -368,20 +364,18 @@ defm : StorePatGlobalAddrOffOnly<i64, truncstorei32, "STORE32_I64">;
 multiclass MemoryOps<WebAssemblyRegClass rc, string B> {
 // Current memory size.
 defm MEMORY_SIZE_A#B : I<(outs rc:$dst), (ins i32imm:$flags),
-                         (outs), (ins i32imm:$flags),
                          [(set rc:$dst,
                            (int_wasm_memory_size (i32 imm:$flags)))],
-                         "memory.size\t$dst, $flags", "memory.size\t$flags",
+                         "memory.size\t$dst, $flags",
                          0x3f>;
 
 // Grow memory.
 defm MEMORY_GROW_A#B : I<(outs rc:$dst), (ins i32imm:$flags, rc:$delta),
-                         (outs), (ins i32imm:$flags),
                          [(set rc:$dst,
                            (int_wasm_memory_grow (i32 imm:$flags),
                              rc:$delta))],
                          "memory.grow\t$dst, $flags, $delta",
-                         "memory.grow\t$flags", 0x40>;
+                         0x40>;
 }
 
 defm : MemoryOps<I32, "32">;

@@ -61,18 +61,7 @@ WebAssemblyTargetLowering::WebAssemblyTargetLowering(
   addRegisterClass(MVT::i64, &WebAssembly::I64RegClass);
   addRegisterClass(MVT::f32, &WebAssembly::F32RegClass);
   addRegisterClass(MVT::f64, &WebAssembly::F64RegClass);
-  if (Subtarget->hasSIMD128()) {
-    addRegisterClass(MVT::v16i8, &WebAssembly::V128RegClass);
-    addRegisterClass(MVT::v8i16, &WebAssembly::V128RegClass);
-    addRegisterClass(MVT::v4i32, &WebAssembly::V128RegClass);
-    addRegisterClass(MVT::v4f32, &WebAssembly::V128RegClass);
-    addRegisterClass(MVT::v2i64, &WebAssembly::V128RegClass);
-    addRegisterClass(MVT::v2f64, &WebAssembly::V128RegClass);
-  }
-  if (Subtarget->hasReferenceTypes()) {
-    addRegisterClass(MVT::externref, &WebAssembly::EXTERNREFRegClass);
-    addRegisterClass(MVT::funcref, &WebAssembly::FUNCREFRegClass);
-  }
+
   // Compute derived properties from the register classes.
   computeRegisterProperties(Subtarget->getRegisterInfo());
 
@@ -399,10 +388,10 @@ bool WebAssemblyTargetLowering::shouldScalarizeBinop(SDValue VecOp) const {
   return isOperationLegalOrCustomOrPromote(Opc, ScalarVT);
 }
 
-FastISel *WebAssemblyTargetLowering::createFastISel(
-    FunctionLoweringInfo &FuncInfo, const TargetLibraryInfo *LibInfo) const {
-  return WebAssembly::createFastISel(FuncInfo, LibInfo);
-}
+// FastISel *WebAssemblyTargetLowering::createFastISel(
+//     FunctionLoweringInfo &FuncInfo, const TargetLibraryInfo *LibInfo) const {
+//   return WebAssembly::createFastISel(FuncInfo, LibInfo);
+// }
 
 MVT WebAssemblyTargetLowering::getScalarShiftAmountTy(const DataLayout & /*DL*/,
                                                       EVT VT) const {
@@ -530,7 +519,6 @@ LowerCallResults(MachineInstr &CallResults, DebugLoc DL, MachineBasicBlock *BB,
          CallResults.getOpcode() == WebAssembly::RET_CALL_RESULTS);
 
   bool IsIndirect = CallParams.getOperand(0).isReg();
-  bool IsRetCall = CallResults.getOpcode() == WebAssembly::RET_CALL_RESULTS;
 
   bool IsFuncrefCall = false;
   if (IsIndirect) {
@@ -538,17 +526,11 @@ LowerCallResults(MachineInstr &CallResults, DebugLoc DL, MachineBasicBlock *BB,
     const MachineFunction *MF = BB->getParent();
     const MachineRegisterInfo &MRI = MF->getRegInfo();
     const TargetRegisterClass *TRC = MRI.getRegClass(Reg);
-    IsFuncrefCall = (TRC == &WebAssembly::FUNCREFRegClass);
-    assert(!IsFuncrefCall || Subtarget->hasReferenceTypes());
   }
 
   unsigned CallOp;
-  if (IsIndirect && IsRetCall) {
-    CallOp = WebAssembly::RET_CALL_INDIRECT;
-  } else if (IsIndirect) {
+  if (IsIndirect) {
     CallOp = WebAssembly::CALL_INDIRECT;
-  } else if (IsRetCall) {
-    CallOp = WebAssembly::RET_CALL;
   } else {
     CallOp = WebAssembly::CALL;
   }
@@ -577,19 +559,11 @@ LowerCallResults(MachineInstr &CallResults, DebugLoc DL, MachineBasicBlock *BB,
     CallParams.removeOperand(0);
 
     // For funcrefs, call_indirect is done through __funcref_call_table and the
-    // funcref is always installed in slot 0 of the table, therefore instead of having
-    // the function pointer added at the end of the params list, a zero (the index in
+    // funcref is always installed in slot 0 of the table, therefore instead of
+    // having the function pointer added at the end of the params list, a zero
+    // (the index in
     // __funcref_call_table is added).
-    if (IsFuncrefCall) {
-      Register RegZero =
-          MF.getRegInfo().createVirtualRegister(&WebAssembly::I32RegClass);
-      MachineInstrBuilder MIBC0 =
-          BuildMI(MF, DL, TII.get(WebAssembly::CONST_I32), RegZero).addImm(0);
-
-      BB->insert(CallResults.getIterator(), MIBC0);
-      MachineInstrBuilder(MF, CallParams).addReg(RegZero);
-    } else
-      CallParams.addOperand(FnPtr);
+    CallParams.addOperand(FnPtr);
   }
 
   for (auto Def : CallResults.defs())
@@ -621,38 +595,6 @@ LowerCallResults(MachineInstr &CallResults, DebugLoc DL, MachineBasicBlock *BB,
   BB->insert(CallResults.getIterator(), MIB);
   CallParams.eraseFromParent();
   CallResults.eraseFromParent();
-
-  // If this is a funcref call, to avoid hidden GC roots, we need to clear the
-  // table slot with ref.null upon call_indirect return.
-  //
-  // This generates the following code, which comes right after a call_indirect
-  // of a funcref:
-  //
-  //    i32.const 0
-  //    ref.null func
-  //    table.set __funcref_call_table
-  if (IsIndirect && IsFuncrefCall) {
-    MCSymbolWasm *Table = WebAssembly::getOrCreateFuncrefCallTableSymbol(
-        MF.getContext(), Subtarget);
-    Register RegZero =
-        MF.getRegInfo().createVirtualRegister(&WebAssembly::I32RegClass);
-    MachineInstr *Const0 =
-        BuildMI(MF, DL, TII.get(WebAssembly::CONST_I32), RegZero).addImm(0);
-    BB->insertAfter(MIB.getInstr()->getIterator(), Const0);
-
-    Register RegFuncref =
-        MF.getRegInfo().createVirtualRegister(&WebAssembly::FUNCREFRegClass);
-    MachineInstr *RefNull =
-        BuildMI(MF, DL, TII.get(WebAssembly::REF_NULL_FUNCREF), RegFuncref);
-    BB->insertAfter(Const0->getIterator(), RefNull);
-
-    MachineInstr *TableSet =
-        BuildMI(MF, DL, TII.get(WebAssembly::TABLE_SET_FUNCREF))
-            .addSym(Table)
-            .addReg(RegZero)
-            .addReg(RegFuncref);
-    BB->insertAfter(RefNull->getIterator(), TableSet);
-  }
 
   return BB;
 }
@@ -721,10 +663,9 @@ WebAssemblyTargetLowering::getRegForInlineAsmConstraint(
     switch (Constraint[0]) {
     case 'r':
       assert(VT != MVT::iPTR && "Pointer MVT not expected here");
-      if (Subtarget->hasSIMD128() && VT.isVector()) {
-        if (VT.getSizeInBits() == 128)
-          return std::make_pair(0U, &WebAssembly::V128RegClass);
-      }
+      if (Subtarget->hasSIMD128() && VT.isVector())
+        llvm_unreachable("should not have vector regsiter");
+
       if (VT.isInteger() && !VT.isVector()) {
         if (VT.getSizeInBits() <= 32)
           return std::make_pair(0U, &WebAssembly::I32RegClass);
@@ -1156,7 +1097,7 @@ WebAssemblyTargetLowering::LowerCall(CallLoweringInfo &CLI,
     // If the callee is a GlobalAddress node (quite common, every direct call
     // is) turn it into a TargetGlobalAddress node so that LowerGlobalAddress
     // doesn't at MO_GOT which is not needed for direct calls.
-    GlobalAddressSDNode* GA = cast<GlobalAddressSDNode>(Callee);
+    GlobalAddressSDNode *GA = cast<GlobalAddressSDNode>(Callee);
     Callee = DAG.getTargetGlobalAddress(GA->getGlobal(), DL,
                                         getPointerTy(DAG.getDataLayout()),
                                         GA->getOffset());
@@ -1254,10 +1195,17 @@ SDValue WebAssemblyTargetLowering::LowerReturn(
     SelectionDAG &DAG) const {
   assert((Subtarget->hasMultivalue() || Outs.size() <= 1) &&
          "MVP WebAssembly can only return up to one value");
-  if (!callingConvSupported(CallConv))
-    fail(DL, DAG, "WebAssembly doesn't support non-C calling conventions");
+
+  SmallVector<CCValAssign, 16> RVLocs;
+  CCState CCInfo(CallConv, isVarArg, MF, RVLocs, *DAG.getContext());
+  CCInfo.AnalyzeReturn(Outs, RetCC_WebAssembly);
 
   SmallVector<SDValue, 4> RetOps(1, Chain);
+  if (RVLocs.size() > 0) {
+      
+  }
+  
+  
   RetOps.append(OutVals.begin(), OutVals.end());
   Chain = DAG.getNode(WebAssemblyISD::RETURN, DL, MVT::Other, RetOps);
 
@@ -1277,69 +1225,66 @@ SDValue WebAssemblyTargetLowering::LowerReturn(
   return Chain;
 }
 
+#include "WebAssemblyGenCallingConv.inc"
+
 SDValue WebAssemblyTargetLowering::LowerFormalArguments(
     SDValue Chain, CallingConv::ID CallConv, bool IsVarArg,
     const SmallVectorImpl<ISD::InputArg> &Ins, const SDLoc &DL,
     SelectionDAG &DAG, SmallVectorImpl<SDValue> &InVals) const {
-  if (!callingConvSupported(CallConv))
-    fail(DL, DAG, "WebAssembly doesn't support non-C calling conventions");
-
   MachineFunction &MF = DAG.getMachineFunction();
-  auto *MFI = MF.getInfo<WebAssemblyFunctionInfo>();
+  auto *WFI = MF.getInfo<WebAssemblyFunctionInfo>();
+  MachineFrameInfo &MFI = MF.getFrameInfo();
+  MVT PtrVT = getPointerTy(DAG.getDataLayout());
 
-  // Set up the incoming ARGUMENTS value, which serves to represent the liveness
-  // of the incoming values before they're represented by virtual registers.
-  MF.getRegInfo().addLiveIn(WebAssembly::ARGUMENTS);
+  SmallVector<CCValAssign, 16> ArgLocs;
+  CCState CCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
+  CCInfo.AnalyzeFormalArguments(Ins, CC_WebAssembly);
 
-  bool HasSwiftErrorArg = false;
-  bool HasSwiftSelfArg = false;
-  for (const ISD::InputArg &In : Ins) {
-    HasSwiftSelfArg |= In.Flags.isSwiftSelf();
-    HasSwiftErrorArg |= In.Flags.isSwiftError();
-    if (In.Flags.isInAlloca())
-      fail(DL, DAG, "WebAssembly hasn't implemented inalloca arguments");
-    if (In.Flags.isNest())
-      fail(DL, DAG, "WebAssembly hasn't implemented nest arguments");
-    if (In.Flags.isInConsecutiveRegs())
-      fail(DL, DAG, "WebAssembly hasn't implemented cons regs arguments");
-    if (In.Flags.isInConsecutiveRegsLast())
-      fail(DL, DAG, "WebAssembly hasn't implemented cons regs last arguments");
-    // Ignore In.getNonZeroOrigAlign() because all our arguments are passed in
-    // registers.
-    InVals.push_back(In.Used ? DAG.getNode(WebAssemblyISD::ARGUMENT, DL, In.VT,
-                                           DAG.getTargetConstant(InVals.size(),
-                                                                 DL, MVT::i32))
-                             : DAG.getUNDEF(In.VT));
+  for (unsigned I = 0, InsIndex = 0; I < ArgLocs.size(); I++, InsIndex++) {
+    ISD::ArgFlagsTy Flags = Ins[InsIndex].Flags;
+    bool IsImmutable = !Flags.isByVal();
+    CCValAssign &VA = ArgLocs[I];
+    assert(!VA.isRegLoc() && "parameters should be passed by stack");
 
-    // Record the number and types of arguments.
-    MFI->addParam(In.VT);
+    if (Flags.isByVal()) {
+      unsigned Bytes = Flags.getByValSize();
+      if (!Bytes)
+        Bytes = 1;
+      int FI = MFI.CreateFixedObject(Bytes, VA.getLocMemOffset(), IsImmutable,
+                                     /*isAliased=*/true);
+      InVals.push_back(DAG.getFrameIndex(FI, PtrVT));
+    } else {
+      EVT ArgVT = Ins[I].ArgVT;
+      int FI = MFI.CreateFixedObject(ArgVT.getSizeInBits() / 8,
+                                     VA.getLocMemOffset(), IsImmutable);
+      if (VA.getLocInfo() == CCValAssign::ZExt)
+        MFI.setObjectZExt(FI, true);
+      else if (VA.getLocInfo() == CCValAssign::SExt)
+        MFI.setObjectSExt(FI, true);
+      SDValue ArgValue = DAG.getFrameIndex(FI, PtrVT);
+      if (VA.getLocInfo() == CCValAssign::Indirect)
+        ArgValue = DAG.getLoad(VA.getValVT(), DL, Chain, ArgValue,
+                               MachinePointerInfo());
+      InVals.push_back(ArgValue);
+    }
+
+    WFI->addParam(Ins[InsIndex].VT);
   }
 
-  // For swiftcc, emit additional swiftself and swifterror arguments
-  // if there aren't. These additional arguments are also added for callee
-  // signature They are necessary to match callee and caller signature for
-  // indirect call.
-  auto PtrVT = getPointerTy(MF.getDataLayout());
-  if (CallConv == CallingConv::Swift) {
-    if (!HasSwiftSelfArg) {
-      MFI->addParam(PtrVT);
-    }
-    if (!HasSwiftErrorArg) {
-      MFI->addParam(PtrVT);
-    }
-  }
   // Varargs are copied into a buffer allocated by the caller, and a pointer to
   // the buffer is passed as an argument.
   if (IsVarArg) {
-    MVT PtrVT = getPointerTy(MF.getDataLayout());
-    Register VarargVreg =
-        MF.getRegInfo().createVirtualRegister(getRegClassFor(PtrVT));
-    MFI->setVarargBufferVreg(VarargVreg);
-    Chain = DAG.getCopyToReg(
-        Chain, DL, VarargVreg,
-        DAG.getNode(WebAssemblyISD::ARGUMENT, DL, PtrVT,
-                    DAG.getTargetConstant(Ins.size(), DL, MVT::i32)));
-    MFI->addParam(PtrVT);
+    llvm_unreachable("should not be here");
+    // MVT PtrVT = getPointerTy(MF.getDataLayout());
+    // Register VarargVreg =
+    //     MF.getRegInfo().createVirtualRegister(getRegClassFor(PtrVT));
+    // MFI->setVarargBufferVreg(VarargVreg);
+    // // todo:
+    // // Chain = DAG.getCopyToReg(
+    // //     Chain, DL, VarargVreg,
+    // //     DAG.getNode(WebAssemblyISD::ARGUMENT, DL, PtrVT,
+    // //                 DAG.getTargetConstant(Ins.size(), DL, MVT::i32)));
+    // MFI->addParam(PtrVT);
   }
 
   // Record the number and types of arguments and results.
@@ -1348,11 +1293,11 @@ SDValue WebAssemblyTargetLowering::LowerFormalArguments(
   computeSignatureVTs(MF.getFunction().getFunctionType(), &MF.getFunction(),
                       MF.getFunction(), DAG.getTarget(), Params, Results);
   for (MVT VT : Results)
-    MFI->addResult(VT);
+    WFI->addResult(VT);
   // TODO: Use signatures in WebAssemblyMachineFunctionInfo too and unify
   // the param logic here with ComputeSignatureVTs
-  assert(MFI->getParams().size() == Params.size() &&
-         std::equal(MFI->getParams().begin(), MFI->getParams().end(),
+  assert(WFI->getParams().size() == Params.size() &&
+         std::equal(WFI->getParams().begin(), WFI->getParams().end(),
                     Params.begin()));
 
   return Chain;
@@ -1709,66 +1654,8 @@ SDValue WebAssemblyTargetLowering::LowerFRAMEADDR(SDValue Op,
 SDValue
 WebAssemblyTargetLowering::LowerGlobalTLSAddress(SDValue Op,
                                                  SelectionDAG &DAG) const {
-  SDLoc DL(Op);
-  const auto *GA = cast<GlobalAddressSDNode>(Op);
-
-  MachineFunction &MF = DAG.getMachineFunction();
-  if (!MF.getSubtarget<WebAssemblySubtarget>().hasBulkMemory())
-    report_fatal_error("cannot use thread-local storage without bulk memory",
-                       false);
-
-  const GlobalValue *GV = GA->getGlobal();
-
-  // Currently Emscripten does not support dynamic linking with threads.
-  // Therefore, if we have thread-local storage, only the local-exec model
-  // is possible.
-  // TODO: remove this and implement proper TLS models once Emscripten
-  // supports dynamic linking with threads.
-  if (GV->getThreadLocalMode() != GlobalValue::LocalExecTLSModel &&
-      !Subtarget->getTargetTriple().isOSEmscripten()) {
-    report_fatal_error("only -ftls-model=local-exec is supported for now on "
-                       "non-Emscripten OSes: variable " +
-                           GV->getName(),
-                       false);
-  }
-
-  auto model = GV->getThreadLocalMode();
-
-  // Unsupported TLS modes
-  assert(model != GlobalValue::NotThreadLocal);
-  assert(model != GlobalValue::InitialExecTLSModel);
-
-  if (model == GlobalValue::LocalExecTLSModel ||
-      model == GlobalValue::LocalDynamicTLSModel ||
-      (model == GlobalValue::GeneralDynamicTLSModel &&
-       getTargetMachine().shouldAssumeDSOLocal(*GV->getParent(), GV))) {
-    // For DSO-local TLS variables we use offset from __tls_base
-
-    MVT PtrVT = getPointerTy(DAG.getDataLayout());
-    auto GlobalGet = PtrVT == MVT::i64 ? WebAssembly::GLOBAL_GET_I64
-                                       : WebAssembly::GLOBAL_GET_I32;
-    const char *BaseName = MF.createExternalSymbolName("__tls_base");
-
-    SDValue BaseAddr(
-        DAG.getMachineNode(GlobalGet, DL, PtrVT,
-                           DAG.getTargetExternalSymbol(BaseName, PtrVT)),
-        0);
-
-    SDValue TLSOffset = DAG.getTargetGlobalAddress(
-        GV, DL, PtrVT, GA->getOffset(), WebAssemblyII::MO_TLS_BASE_REL);
-    SDValue SymOffset =
-        DAG.getNode(WebAssemblyISD::WrapperREL, DL, PtrVT, TLSOffset);
-
-    return DAG.getNode(ISD::ADD, DL, PtrVT, BaseAddr, SymOffset);
-  }
-
-  assert(model == GlobalValue::GeneralDynamicTLSModel);
-
-  EVT VT = Op.getValueType();
-  return DAG.getNode(WebAssemblyISD::Wrapper, DL, VT,
-                     DAG.getTargetGlobalAddress(GA->getGlobal(), DL, VT,
-                                                GA->getOffset(),
-                                                WebAssemblyII::MO_GOT_TLS));
+  report_fatal_error("cannot use thread-local storage without bulk memory",
+                     false);
 }
 
 SDValue WebAssemblyTargetLowering::LowerGlobalAddress(SDValue Op,
@@ -1791,8 +1678,7 @@ SDValue WebAssemblyTargetLowering::LowerGlobalAddress(SDValue Op,
       if (GV->getValueType()->isFunctionTy()) {
         BaseName = MF.createExternalSymbolName("__table_base");
         OperandFlags = WebAssemblyII::MO_TABLE_BASE_REL;
-      }
-      else {
+      } else {
         BaseName = MF.createExternalSymbolName("__memory_base");
         OperandFlags = WebAssemblyII::MO_MEMORY_BASE_REL;
       }

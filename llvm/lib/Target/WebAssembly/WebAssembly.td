@@ -41,11 +41,6 @@ def FeatureSignExt :
                        "HasSignExt", "true",
                        "Enable sign extension operators">;
 
-def FeatureTailCall :
-      SubtargetFeature<"tail-call",
-                       "HasTailCall", "true",
-                       "Enable tail call instructions">;
-
 def FeatureExceptionHandling :
       SubtargetFeature<"exception-handling", "HasExceptionHandling", "true",
                        "Enable Wasm exception handling">;
@@ -54,19 +49,6 @@ def FeatureBulkMemory :
       SubtargetFeature<"bulk-memory", "HasBulkMemory", "true",
                        "Enable bulk memory operations">;
 
-def FeatureMultivalue :
-      SubtargetFeature<"multivalue",
-                       "HasMultivalue", "true",
-                       "Enable multivalue blocks, instructions, and functions">;
-
-def FeatureMutableGlobals :
-      SubtargetFeature<"mutable-globals", "HasMutableGlobals", "true",
-                       "Enable mutable globals">;
-
-def FeatureReferenceTypes :
-      SubtargetFeature<"reference-types", "HasReferenceTypes", "true",
-                       "Enable reference types">;
-
 def FeatureExtendedConst :
       SubtargetFeature<"extended-const", "HasExtendedConst", "true",
                        "Enable extended const expressions">;
@@ -74,6 +56,11 @@ def FeatureExtendedConst :
 //===----------------------------------------------------------------------===//
 // Architectures.
 //===----------------------------------------------------------------------===//
+
+//===----------------------------------------------------------------------===//
+// Architectures.
+//===----------------------------------------------------------------------===//
+include "WebAssemblyCallingConv.td"
 
 //===----------------------------------------------------------------------===//
 // Register File Description
@@ -98,13 +85,6 @@ def : ProcessorModel<"mvp", NoSchedModel, []>;
 
 // Generic processor: latest stable version.
 def : ProcessorModel<"generic", NoSchedModel, []>;
-
-// Latest and greatest experimental version of WebAssembly. Bugs included!
-def : ProcessorModel<"bleeding-edge", NoSchedModel,
-                      [FeatureSIMD128, FeatureAtomics,
-                       FeatureNontrappingFPToInt, FeatureSignExt,
-                       FeatureMutableGlobals, FeatureBulkMemory,
-                       FeatureTailCall]>;
 
 //===----------------------------------------------------------------------===//
 // Target Declaration

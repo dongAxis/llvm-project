@@ -159,142 +159,142 @@ Optional<MCDisassembler::DecodeStatus> WebAssemblyDisassembler::onSymbolStart(
 MCDisassembler::DecodeStatus WebAssemblyDisassembler::getInstruction(
     MCInst &MI, uint64_t &Size, ArrayRef<uint8_t> Bytes, uint64_t /*Address*/,
     raw_ostream &CS) const {
-  CommentStream = &CS;
-  Size = 0;
-  int Opc = nextByte(Bytes, Size);
-  if (Opc < 0)
-    return MCDisassembler::Fail;
-  const auto *WasmInst = &InstructionTable0[Opc];
-  // If this is a prefix byte, indirect to another table.
-  if (WasmInst->ET == ET_Prefix) {
-    WasmInst = nullptr;
-    // Linear search, so far only 2 entries.
-    for (auto PT = PrefixTable; PT->Table; PT++) {
-      if (PT->Prefix == Opc) {
-        WasmInst = PT->Table;
-        break;
-      }
-    }
-    if (!WasmInst)
-      return MCDisassembler::Fail;
-    int64_t PrefixedOpc;
-    if (!nextLEB(PrefixedOpc, Bytes, Size, false))
-      return MCDisassembler::Fail;
-    if (PrefixedOpc < 0 || PrefixedOpc >= WebAssemblyInstructionTableSize)
-      return MCDisassembler::Fail;
-    WasmInst += PrefixedOpc;
-  }
-  if (WasmInst->ET == ET_Unused)
-    return MCDisassembler::Fail;
-  // At this point we must have a valid instruction to decode.
-  assert(WasmInst->ET == ET_Instruction);
-  MI.setOpcode(WasmInst->Opcode);
-  // Parse any operands.
-  for (uint8_t OPI = 0; OPI < WasmInst->NumOperands; OPI++) {
-    auto OT = OperandTable[WasmInst->OperandStart + OPI];
-    switch (OT) {
-    // ULEB operands:
-    case WebAssembly::OPERAND_BASIC_BLOCK:
-    case WebAssembly::OPERAND_LOCAL:
-    case WebAssembly::OPERAND_GLOBAL:
-    case WebAssembly::OPERAND_FUNCTION32:
-    case WebAssembly::OPERAND_TABLE:
-    case WebAssembly::OPERAND_OFFSET32:
-    case WebAssembly::OPERAND_OFFSET64:
-    case WebAssembly::OPERAND_P2ALIGN:
-    case WebAssembly::OPERAND_TYPEINDEX:
-    case WebAssembly::OPERAND_TAG:
-    case MCOI::OPERAND_IMMEDIATE: {
-      if (!parseLEBImmediate(MI, Size, Bytes, false))
-        return MCDisassembler::Fail;
-      break;
-    }
-    // SLEB operands:
-    case WebAssembly::OPERAND_I32IMM:
-    case WebAssembly::OPERAND_I64IMM: {
-      if (!parseLEBImmediate(MI, Size, Bytes, true))
-        return MCDisassembler::Fail;
-      break;
-    }
-    // block_type operands:
-    case WebAssembly::OPERAND_SIGNATURE: {
-      int64_t Val;
-      uint64_t PrevSize = Size;
-      if (!nextLEB(Val, Bytes, Size, true))
-        return MCDisassembler::Fail;
-      if (Val < 0) {
-        // Negative values are single septet value types or empty types
-        if (Size != PrevSize + 1) {
-          MI.addOperand(
-              MCOperand::createImm(int64_t(WebAssembly::BlockType::Invalid)));
-        } else {
-          MI.addOperand(MCOperand::createImm(Val & 0x7f));
-        }
-      } else {
-        // We don't have access to the signature, so create a symbol without one
-        MCSymbol *Sym = getContext().createTempSymbol("typeindex", true);
-        auto *WasmSym = cast<MCSymbolWasm>(Sym);
-        WasmSym->setType(wasm::WASM_SYMBOL_TYPE_FUNCTION);
-        const MCExpr *Expr = MCSymbolRefExpr::create(
-            WasmSym, MCSymbolRefExpr::VK_WASM_TYPEINDEX, getContext());
-        MI.addOperand(MCOperand::createExpr(Expr));
-      }
-      break;
-    }
-    // FP operands.
-    case WebAssembly::OPERAND_F32IMM: {
-      if (!parseImmediate<float>(MI, Size, Bytes))
-        return MCDisassembler::Fail;
-      break;
-    }
-    case WebAssembly::OPERAND_F64IMM: {
-      if (!parseImmediate<double>(MI, Size, Bytes))
-        return MCDisassembler::Fail;
-      break;
-    }
-    // Vector lane operands (not LEB encoded).
-    case WebAssembly::OPERAND_VEC_I8IMM: {
-      if (!parseImmediate<uint8_t>(MI, Size, Bytes))
-        return MCDisassembler::Fail;
-      break;
-    }
-    case WebAssembly::OPERAND_VEC_I16IMM: {
-      if (!parseImmediate<uint16_t>(MI, Size, Bytes))
-        return MCDisassembler::Fail;
-      break;
-    }
-    case WebAssembly::OPERAND_VEC_I32IMM: {
-      if (!parseImmediate<uint32_t>(MI, Size, Bytes))
-        return MCDisassembler::Fail;
-      break;
-    }
-    case WebAssembly::OPERAND_VEC_I64IMM: {
-      if (!parseImmediate<uint64_t>(MI, Size, Bytes))
-        return MCDisassembler::Fail;
-      break;
-    }
-    case WebAssembly::OPERAND_BRLIST: {
-      int64_t TargetTableLen;
-      if (!nextLEB(TargetTableLen, Bytes, Size, false))
-        return MCDisassembler::Fail;
-      for (int64_t I = 0; I < TargetTableLen; I++) {
-        if (!parseLEBImmediate(MI, Size, Bytes, false))
-          return MCDisassembler::Fail;
-      }
-      // Default case.
-      if (!parseLEBImmediate(MI, Size, Bytes, false))
-        return MCDisassembler::Fail;
-      break;
-    }
-    case MCOI::OPERAND_REGISTER:
-      // The tablegen header currently does not have any register operands since
-      // we use only the stack (_S) instructions.
-      // If you hit this that probably means a bad instruction definition in
-      // tablegen.
-      llvm_unreachable("Register operand in WebAssemblyDisassembler");
-    default:
-      llvm_unreachable("Unknown operand type in WebAssemblyDisassembler");
-    }
-  }
+  // CommentStream = &CS;
+  // Size = 0;
+  // int Opc = nextByte(Bytes, Size);
+  // if (Opc < 0)
+  //   return MCDisassembler::Fail;
+  // const auto *WasmInst = &InstructionTable0[Opc];
+  // // If this is a prefix byte, indirect to another table.
+  // if (WasmInst->ET == ET_Prefix) {
+  //   WasmInst = nullptr;
+  //   // Linear search, so far only 2 entries.
+  //   for (auto PT = PrefixTable; PT->Table; PT++) {
+  //     if (PT->Prefix == Opc) {
+  //       WasmInst = PT->Table;
+  //       break;
+  //     }
+  //   }
+  //   if (!WasmInst)
+  //     return MCDisassembler::Fail;
+  //   int64_t PrefixedOpc;
+  //   if (!nextLEB(PrefixedOpc, Bytes, Size, false))
+  //     return MCDisassembler::Fail;
+  //   if (PrefixedOpc < 0 || PrefixedOpc >= WebAssemblyInstructionTableSize)
+  //     return MCDisassembler::Fail;
+  //   WasmInst += PrefixedOpc;
+  // }
+  // if (WasmInst->ET == ET_Unused)
+  //   return MCDisassembler::Fail;
+  // // At this point we must have a valid instruction to decode.
+  // assert(WasmInst->ET == ET_Instruction);
+  // MI.setOpcode(WasmInst->Opcode);
+  // // Parse any operands.
+  // for (uint8_t OPI = 0; OPI < WasmInst->NumOperands; OPI++) {
+  //   auto OT = OperandTable[WasmInst->OperandStart + OPI];
+  //   switch (OT) {
+  //   // ULEB operands:
+  //   case WebAssembly::OPERAND_BASIC_BLOCK:
+  //   case WebAssembly::OPERAND_LOCAL:
+  //   case WebAssembly::OPERAND_GLOBAL:
+  //   case WebAssembly::OPERAND_FUNCTION32:
+  //   case WebAssembly::OPERAND_TABLE:
+  //   case WebAssembly::OPERAND_OFFSET32:
+  //   case WebAssembly::OPERAND_OFFSET64:
+  //   case WebAssembly::OPERAND_P2ALIGN:
+  //   case WebAssembly::OPERAND_TYPEINDEX:
+  //   case WebAssembly::OPERAND_TAG:
+  //   case MCOI::OPERAND_IMMEDIATE: {
+  //     if (!parseLEBImmediate(MI, Size, Bytes, false))
+  //       return MCDisassembler::Fail;
+  //     break;
+  //   }
+  //   // SLEB operands:
+  //   case WebAssembly::OPERAND_I32IMM:
+  //   case WebAssembly::OPERAND_I64IMM: {
+  //     if (!parseLEBImmediate(MI, Size, Bytes, true))
+  //       return MCDisassembler::Fail;
+  //     break;
+  //   }
+  //   // block_type operands:
+  //   case WebAssembly::OPERAND_SIGNATURE: {
+  //     int64_t Val;
+  //     uint64_t PrevSize = Size;
+  //     if (!nextLEB(Val, Bytes, Size, true))
+  //       return MCDisassembler::Fail;
+  //     if (Val < 0) {
+  //       // Negative values are single septet value types or empty types
+  //       if (Size != PrevSize + 1) {
+  //         MI.addOperand(
+  //             MCOperand::createImm(int64_t(WebAssembly::BlockType::Invalid)));
+  //       } else {
+  //         MI.addOperand(MCOperand::createImm(Val & 0x7f));
+  //       }
+  //     } else {
+  //       // We don't have access to the signature, so create a symbol without one
+  //       MCSymbol *Sym = getContext().createTempSymbol("typeindex", true);
+  //       auto *WasmSym = cast<MCSymbolWasm>(Sym);
+  //       WasmSym->setType(wasm::WASM_SYMBOL_TYPE_FUNCTION);
+  //       const MCExpr *Expr = MCSymbolRefExpr::create(
+  //           WasmSym, MCSymbolRefExpr::VK_WASM_TYPEINDEX, getContext());
+  //       MI.addOperand(MCOperand::createExpr(Expr));
+  //     }
+  //     break;
+  //   }
+  //   // FP operands.
+  //   case WebAssembly::OPERAND_F32IMM: {
+  //     if (!parseImmediate<float>(MI, Size, Bytes))
+  //       return MCDisassembler::Fail;
+  //     break;
+  //   }
+  //   case WebAssembly::OPERAND_F64IMM: {
+  //     if (!parseImmediate<double>(MI, Size, Bytes))
+  //       return MCDisassembler::Fail;
+  //     break;
+  //   }
+  //   // Vector lane operands (not LEB encoded).
+  //   case WebAssembly::OPERAND_VEC_I8IMM: {
+  //     if (!parseImmediate<uint8_t>(MI, Size, Bytes))
+  //       return MCDisassembler::Fail;
+  //     break;
+  //   }
+  //   case WebAssembly::OPERAND_VEC_I16IMM: {
+  //     if (!parseImmediate<uint16_t>(MI, Size, Bytes))
+  //       return MCDisassembler::Fail;
+  //     break;
+  //   }
+  //   case WebAssembly::OPERAND_VEC_I32IMM: {
+  //     if (!parseImmediate<uint32_t>(MI, Size, Bytes))
+  //       return MCDisassembler::Fail;
+  //     break;
+  //   }
+  //   case WebAssembly::OPERAND_VEC_I64IMM: {
+  //     if (!parseImmediate<uint64_t>(MI, Size, Bytes))
+  //       return MCDisassembler::Fail;
+  //     break;
+  //   }
+  //   case WebAssembly::OPERAND_BRLIST: {
+  //     int64_t TargetTableLen;
+  //     if (!nextLEB(TargetTableLen, Bytes, Size, false))
+  //       return MCDisassembler::Fail;
+  //     for (int64_t I = 0; I < TargetTableLen; I++) {
+  //       if (!parseLEBImmediate(MI, Size, Bytes, false))
+  //         return MCDisassembler::Fail;
+  //     }
+  //     // Default case.
+  //     if (!parseLEBImmediate(MI, Size, Bytes, false))
+  //       return MCDisassembler::Fail;
+  //     break;
+  //   }
+  //   case MCOI::OPERAND_REGISTER:
+  //     // The tablegen header currently does not have any register operands since
+  //     // we use only the stack (_S) instructions.
+  //     // If you hit this that probably means a bad instruction definition in
+  //     // tablegen.
+  //     llvm_unreachable("Register operand in WebAssemblyDisassembler");
+  //   default:
+  //     llvm_unreachable("Unknown operand type in WebAssemblyDisassembler");
+  //   }
+  // }
   return MCDisassembler::Success;
 }

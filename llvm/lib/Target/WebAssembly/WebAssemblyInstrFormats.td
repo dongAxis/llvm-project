@@ -14,10 +14,9 @@
 // WebAssembly Instruction Format.
 // We instantiate 2 of these for every actual instruction (register based
 // and stack based), see below.
-class WebAssemblyInst<bits<32> inst, string asmstr, bit stack, bit is64>
-  : StackRel, RegisterRel, Wasm64Rel, Instruction {
-  bits<32> Inst = inst; // Instruction encoding.
-  bit StackBased = stack;
+class WebAssemblyInst<bits<32> opcode, string asmstr, bit is64>
+  : Wasm64Rel, Instruction {
+  bits<32> Inst = opcode; // Instruction encoding.
   string BaseName = NAME;
   bit IsWasm64 = is64;
   string Wasm32Name = !subst("_A64", "_A32", NAME);
@@ -27,16 +26,17 @@ class WebAssemblyInst<bits<32> inst, string asmstr, bit stack, bit is64>
   // When there are multiple instructions that map to the same encoding (in
   // e.g. the disassembler use case) prefer the one where IsCanonical == 1.
   bit IsCanonical = 0;
+
+  //let Inst{48-63} = opcode;
 }
 
 // Normal instructions. Default instantiation of a WebAssemblyInst.
-class NI<dag oops, dag iops, list<dag> pattern, bit stack,
+class NI<dag oops, dag iops, list<dag> pattern,
          string asmstr = "", bits<32> inst = -1, bit is64 = false>
-    : WebAssemblyInst<inst, asmstr, stack, is64> {
+    : WebAssemblyInst<inst, asmstr, is64> {
   dag OutOperandList = oops;
   dag InOperandList  = iops;
   let Pattern        = pattern;
-  let Defs           = [ARGUMENTS];
 }
 
 // Generates both register and stack based versions of one actual instruction.
@@ -52,17 +52,16 @@ class NI<dag oops, dag iops, list<dag> pattern, bit stack,
 // MC.
 // Every instruction should want to be based on this multi-class to guarantee
 // there is always an equivalent pair of instructions.
-multiclass I<dag oops_r, dag iops_r, dag oops_s, dag iops_s,
-             list<dag> pattern_r, string asmstr_r = "", string asmstr_s = "",
+multiclass I<dag oops_r, dag iops_r,
+             list<dag> pattern_r, string asmstr_r = "",
              bits<32> inst = -1, bit is64 = false> {
   let isCodeGenOnly = 1 in
-  def "" : NI<oops_r, iops_r, pattern_r, false, asmstr_r, inst, is64>;
-  let BaseName = NAME in
-  def _S : NI<oops_s, iops_s, [], true, asmstr_s, inst, is64>;
+  def "" : NI<oops_r, iops_r, pattern_r, asmstr_r, inst, is64>;
+  def _S : NI<oops_r, iops_r, [], asmstr_r, inst, is64>;
 }
 
 // For instructions that have no register ops, so both sets are the same.
 multiclass NRI<dag oops, dag iops, list<dag> pattern, string asmstr = "",
                bits<32> inst = -1> {
-  defm "": I<oops, iops, oops, iops, pattern, asmstr, asmstr, inst>;
+  defm "": I<oops, iops, pattern, asmstr, inst>;
 }

@@ -186,47 +186,12 @@ void WebAssemblyDAGToDAGISel::Select(SDNode *Node) {
       ReplaceNode(Node, TLSBase);
       return;
     }
-
-    case Intrinsic::wasm_catch: {
-      int Tag = Node->getConstantOperandVal(2);
-      SDValue SymNode = getTagSymNode(Tag, CurDAG);
-      MachineSDNode *Catch =
-          CurDAG->getMachineNode(WebAssembly::CATCH, DL,
-                                 {
-                                     PtrVT,     // exception pointer
-                                     MVT::Other // outchain type
-                                 },
-                                 {
-                                     SymNode,            // exception symbol
-                                     Node->getOperand(0) // inchain
-                                 });
-      ReplaceNode(Node, Catch);
-      return;
-    }
     }
     break;
   }
 
-  case ISD::INTRINSIC_VOID: {
-    unsigned IntNo = Node->getConstantOperandVal(1);
-    switch (IntNo) {
-    case Intrinsic::wasm_throw: {
-      int Tag = Node->getConstantOperandVal(2);
-      SDValue SymNode = getTagSymNode(Tag, CurDAG);
-      MachineSDNode *Throw =
-          CurDAG->getMachineNode(WebAssembly::THROW, DL,
-                                 MVT::Other, // outchain type
-                                 {
-                                     SymNode,             // exception symbol
-                                     Node->getOperand(3), // thrown value
-                                     Node->getOperand(0)  // inchain
-                                 });
-      ReplaceNode(Node, Throw);
-      return;
-    }
-    }
+  case ISD::INTRINSIC_VOID:
     break;
-  }
 
   case WebAssemblyISD::CALL:
   case WebAssemblyISD::RET_CALL: {

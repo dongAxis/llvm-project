@@ -31,13 +31,6 @@ Optional<wasm::ValType> WebAssembly::parseType(StringRef Type) {
     return wasm::ValType::F32;
   if (Type == "f64")
     return wasm::ValType::F64;
-  if (Type == "v128" || Type == "i8x16" || Type == "i16x8" || Type == "i32x4" ||
-      Type == "i64x2" || Type == "f32x4" || Type == "f64x2")
-    return wasm::ValType::V128;
-  if (Type == "funcref")
-    return wasm::ValType::FUNCREF;
-  if (Type == "externref")
-    return wasm::ValType::EXTERNREF;
   return Optional<wasm::ValType>();
 }
 
@@ -48,9 +41,6 @@ WebAssembly::BlockType WebAssembly::parseBlockType(StringRef Type) {
       .Case("i64", WebAssembly::BlockType::I64)
       .Case("f32", WebAssembly::BlockType::F32)
       .Case("f64", WebAssembly::BlockType::F64)
-      .Case("v128", WebAssembly::BlockType::V128)
-      .Case("funcref", WebAssembly::BlockType::Funcref)
-      .Case("externref", WebAssembly::BlockType::Externref)
       .Case("void", WebAssembly::BlockType::Void)
       .Default(WebAssembly::BlockType::Invalid);
 }
@@ -62,12 +52,6 @@ MVT WebAssembly::parseMVT(StringRef Type) {
       .Case("f32", MVT::f32)
       .Case("f64", MVT::f64)
       .Case("i64", MVT::i64)
-      .Case("v16i8", MVT::v16i8)
-      .Case("v8i16", MVT::v8i16)
-      .Case("v4i32", MVT::v4i32)
-      .Case("v2i64", MVT::v2i64)
-      .Case("funcref", MVT::funcref)
-      .Case("externref", MVT::externref)
       .Default(MVT::INVALID_SIMPLE_VALUE_TYPE);
 }
 
@@ -83,14 +67,6 @@ const char *WebAssembly::anyTypeToString(unsigned Type) {
     return "f32";
   case wasm::WASM_TYPE_F64:
     return "f64";
-  case wasm::WASM_TYPE_V128:
-    return "v128";
-  case wasm::WASM_TYPE_FUNCREF:
-    return "funcref";
-  case wasm::WASM_TYPE_EXTERNREF:
-    return "externref";
-  case wasm::WASM_TYPE_FUNC:
-    return "func";
   case wasm::WASM_TYPE_NORESULT:
     return "void";
   default:
@@ -131,17 +107,6 @@ wasm::ValType WebAssembly::toValType(MVT Type) {
     return wasm::ValType::F32;
   case MVT::f64:
     return wasm::ValType::F64;
-  case MVT::v16i8:
-  case MVT::v8i16:
-  case MVT::v4i32:
-  case MVT::v2i64:
-  case MVT::v4f32:
-  case MVT::v2f64:
-    return wasm::ValType::V128;
-  case MVT::funcref:
-    return wasm::ValType::FUNCREF;
-  case MVT::externref:
-    return wasm::ValType::EXTERNREF;
   default:
     llvm_unreachable("unexpected type");
   }
@@ -157,12 +122,6 @@ wasm::ValType WebAssembly::regClassToValType(unsigned RC) {
     return wasm::ValType::F32;
   case WebAssembly::F64RegClassID:
     return wasm::ValType::F64;
-  case WebAssembly::V128RegClassID:
-    return wasm::ValType::V128;
-  case WebAssembly::FUNCREFRegClassID:
-    return wasm::ValType::FUNCREF;
-  case WebAssembly::EXTERNREFRegClassID:
-    return wasm::ValType::EXTERNREF;
   default:
     llvm_unreachable("unexpected type");
   }
@@ -182,12 +141,6 @@ void WebAssembly::wasmSymbolSetType(MCSymbolWasm *Sym, const Type *GlobalVT,
     MVT VT;
     IsTable = true;
     switch (GlobalVT->getArrayElementType()->getPointerAddressSpace()) {
-    case WebAssembly::WasmAddressSpace::WASM_ADDRESS_SPACE_FUNCREF:
-      VT = MVT::funcref;
-      break;
-    case WebAssembly::WasmAddressSpace::WASM_ADDRESS_SPACE_EXTERNREF:
-      VT = MVT::externref;
-      break;
     default:
       report_fatal_error("unhandled address space type");
     }

@@ -17,9 +17,9 @@
 // Call sequence markers. These have an immediate which represents the amount of
 // stack space to allocate or free, which is used for varargs lowering.
 let Uses = [SP32, SP64], Defs = [SP32, SP64], isCodeGenOnly = 1 in {
-defm ADJCALLSTACKDOWN : NRI<(outs), (ins i32imm:$amt, i32imm:$amt2),
+defm ADJCALLSTACKDOWN : I<(outs), (ins i32imm:$amt, i32imm:$amt2),
                             [(WebAssemblycallseq_start timm:$amt, timm:$amt2)]>;
-defm ADJCALLSTACKUP : NRI<(outs), (ins i32imm:$amt, i32imm:$amt2),
+defm ADJCALLSTACKUP : I<(outs), (ins i32imm:$amt, i32imm:$amt2),
                           [(WebAssemblycallseq_end timm:$amt, timm:$amt2)]>;
 } // Uses = [SP32, SP64], Defs = [SP32, SP64], isCodeGenOnly = 1
 
@@ -35,18 +35,18 @@ let Uses = [SP32, SP64], isCall = 1 in {
 let isPseudo = 1 in
 defm CALL_PARAMS :
   I<(outs), (ins function32_op:$callee, variable_ops),
-    (outs), (ins function32_op:$callee), [],
-    "call_params\t$callee", "call_params\t$callee", -1>;
+    [],
+    "call_params\t$callee", -1>;
 
 let variadicOpsAreDefs = 1, usesCustomInserter = 1, isPseudo = 1 in
 defm CALL_RESULTS :
-  I<(outs), (ins variable_ops), (outs), (ins), [],
-     "call_results", "call_results", -1>;
+  I<(outs), (ins variable_ops), [],
+     "call_results", -1>;
 
 let variadicOpsAreDefs = 1, usesCustomInserter = 1, isPseudo = 1 in
 defm RET_CALL_RESULTS :
-  I<(outs), (ins variable_ops), (outs), (ins), [],
-     "return_call_results", "return_call_results", -1>;
+  I<(outs), (ins variable_ops), [],
+     "return_call_results", -1>;
 
 // Note that instructions with variable_ops have custom printers in
 // WebAssemblyInstPrinter.cpp.
@@ -54,31 +54,14 @@ defm RET_CALL_RESULTS :
 let variadicOpsAreDefs = 1 in
 defm CALL :
   I<(outs), (ins function32_op:$callee, variable_ops),
-    (outs), (ins function32_op:$callee), [],
-    "call", "call\t$callee", 0x10>;
+    [],
+    "call\t$callee", 0x10>;
 
 let variadicOpsAreDefs = 1 in
 defm CALL_INDIRECT :
   I<(outs),
     (ins TypeIndex:$type, table32_op:$table, variable_ops),
-    (outs),
-    (ins TypeIndex:$type, table32_op:$table),
     [],
-    "call_indirect", "call_indirect\t$type, $table", 0x11>;
-
-let isReturn = 1, isTerminator = 1, hasCtrlDep = 1, isBarrier = 1 in
-defm RET_CALL :
-  I<(outs), (ins function32_op:$callee, variable_ops),
-    (outs), (ins function32_op:$callee), [],
-    "return_call    \t$callee", "return_call\t$callee", 0x12>,
-  Requires<[HasTailCall]>;
-
-let isReturn = 1 in
-defm RET_CALL_INDIRECT :
-  I<(outs), (ins TypeIndex:$type, table32_op:$table, variable_ops),
-    (outs), (ins TypeIndex:$type, table32_op:$table), [],
-    "return_call_indirect\t", "return_call_indirect\t$type, $table",
-    0x13>,
-  Requires<[HasTailCall]>;
+    "call_indirect\t$type, $table", 0x11>;
 
 } // Uses = [SP32,SP64], isCall = 1

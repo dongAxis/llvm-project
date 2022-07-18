@@ -127,10 +127,10 @@ void EmitDisassembler(RecordKeeper &Records, raw_ostream &OS) {
   // WebAssembly has variable length opcodes, so can't use EmitFixedLenDecoder
   // below (which depends on a Size table-gen Record), and also uses a custom
   // disassembler.
-  if (Target.getName() == "WebAssembly") {
-    emitWebAssemblyDisassemblerTables(OS, Target.getInstructionsByEnumValue());
-    return;
-  }
+  // if (Target.getName() == "WebAssembly") {
+  //   emitWebAssemblyDisassemblerTables(OS, Target.getInstructionsByEnumValue());
+  //   return;
+  // }
 
   // ARM and Thumb have a CHECK() macro to deal with DecodeStatuses.
   if (Target.getName() == "ARM" || Target.getName() == "Thumb" ||

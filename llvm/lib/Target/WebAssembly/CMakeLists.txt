@@ -4,6 +4,7 @@ set(LLVM_TARGET_DEFINITIONS WebAssembly.td)
 
 tablegen(LLVM WebAssemblyGenAsmMatcher.inc -gen-asm-matcher)
 tablegen(LLVM WebAssemblyGenAsmWriter.inc -gen-asm-writer)
+tablegen(LLVM WebAssemblyGenCallingConv.inc -gen-callingconv)
 tablegen(LLVM WebAssemblyGenDAGISel.inc -gen-dag-isel)
 tablegen(LLVM WebAssemblyGenDisassemblerTables.inc -gen-disassembler)
 tablegen(LLVM WebAssemblyGenFastISel.inc -gen-fast-isel)
@@ -15,48 +16,21 @@ tablegen(LLVM WebAssemblyGenSubtargetInfo.inc -gen-subtarget)
 add_public_tablegen_target(WebAssemblyCommonTableGen)
 
 add_llvm_target(WebAssemblyCodeGen
-  WebAssemblyAddMissingPrototypes.cpp
-  WebAssemblyArgumentMove.cpp
   WebAssemblyAsmPrinter.cpp
-  WebAssemblyCFGStackify.cpp
-  WebAssemblyCFGSort.cpp
-  WebAssemblyDebugFixup.cpp
-  WebAssemblyDebugValueManager.cpp
-  WebAssemblyLateEHPrepare.cpp
-  WebAssemblyExceptionInfo.cpp
-  WebAssemblyExplicitLocals.cpp
-  WebAssemblyFastISel.cpp
-  WebAssemblyFixBrTableDefaults.cpp
-  WebAssemblyFixIrreducibleControlFlow.cpp
-  WebAssemblyFixFunctionBitcasts.cpp
+  # WebAssemblyFastISel.cpp
   WebAssemblyFrameLowering.cpp
   WebAssemblyISelDAGToDAG.cpp
   WebAssemblyISelLowering.cpp
   WebAssemblyInstrInfo.cpp
-  WebAssemblyLowerBrUnless.cpp
-  WebAssemblyLowerEmscriptenEHSjLj.cpp
-  WebAssemblyLowerRefTypesIntPtrConv.cpp
   WebAssemblyMachineFunctionInfo.cpp
   WebAssemblyMCInstLower.cpp
-  WebAssemblyMCLowerPrePass.cpp
-  WebAssemblyNullifyDebugValueLists.cpp
-  WebAssemblyOptimizeLiveIntervals.cpp
-  WebAssemblyOptimizeReturned.cpp
-  WebAssemblyPeephole.cpp
-  WebAssemblyRegisterInfo.cpp
-  WebAssemblyRegColoring.cpp
-  WebAssemblyRegNumbering.cpp
-  WebAssemblyRegStackify.cpp
-  WebAssemblyReplacePhysRegs.cpp
-  WebAssemblyRuntimeLibcallSignatures.cpp
   WebAssemblySelectionDAGInfo.cpp
-  WebAssemblySetP2AlignOperands.cpp
-  WebAssemblySortRegion.cpp
-  WebAssemblyMemIntrinsicResults.cpp
   WebAssemblySubtarget.cpp
   WebAssemblyTargetMachine.cpp
   WebAssemblyTargetObjectFile.cpp
   WebAssemblyTargetTransformInfo.cpp
+  WebAssemblyRegisterInfo.cpp
+  WebAssemblyRuntimeLibcallSignatures.cpp
 
   DEPENDS
   intrinsics_gen
@@ -73,8 +47,6 @@ add_llvm_target(WebAssemblyCodeGen
   Support
   Target
   TransformUtils
-  WebAssemblyDesc
-  WebAssemblyInfo
   WebAssemblyUtils
 
   ADD_TO_COMPONENT

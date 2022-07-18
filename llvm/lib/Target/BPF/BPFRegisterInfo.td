@@ -33,17 +33,21 @@ foreach I = 0-11 in {
   def W#I  : Wi<I,  "w"#I>,  DwarfRegNum<[I]>;
   // 64-bit Integer registers
   def R#I  : Ri<I,  "r"#I,  [!cast<Wi>("W"#I)]>,  DwarfRegNum<[I]>;
+  // 32 float
+  def F#I  : Wi<I,  "f"#I>,  DwarfRegNum<[I]>;
+  // double 
+  def D#I  : Wi<I,  "f"#I>,  DwarfRegNum<[I]>;
 }
 
 // Register classes.
-def GPR32 : RegisterClass<"BPF", [i32], 64, (add
+def I32 : RegisterClass<"BPF", [i32], 64, (add
   (sequence "W%u", 1, 9),
   W0, // Return value
   W11, // Stack Ptr
   W10  // Frame Ptr
 )>;
 
-def GPR : RegisterClass<"BPF", [i64], 64, (add
+def I64 : RegisterClass<"BPF", [i64], 64, (add
   (sequence "R%u", 1, 9),
   R0, // Return value
   R11, // Stack Ptr

@@ -62,13 +62,6 @@ bool WebAssembly::isChild(const MachineInstr &MI,
 }
 
 bool WebAssembly::mayThrow(const MachineInstr &MI) {
-  switch (MI.getOpcode()) {
-  case WebAssembly::THROW:
-  case WebAssembly::THROW_S:
-  case WebAssembly::RETHROW:
-  case WebAssembly::RETHROW_S:
-    return true;
-  }
   if (isCallIndirect(MI.getOpcode()))
     return true;
   if (!MI.isCall())
@@ -109,13 +102,9 @@ const MachineOperand &WebAssembly::getCalleeOp(const MachineInstr &MI) {
   switch (MI.getOpcode()) {
   case WebAssembly::CALL:
   case WebAssembly::CALL_S:
-  case WebAssembly::RET_CALL:
-  case WebAssembly::RET_CALL_S:
     return MI.getOperand(MI.getNumExplicitDefs());
   case WebAssembly::CALL_INDIRECT:
   case WebAssembly::CALL_INDIRECT_S:
-  case WebAssembly::RET_CALL_INDIRECT:
-  case WebAssembly::RET_CALL_INDIRECT_S:
     return MI.getOperand(MI.getNumExplicitOperands() - 1);
   default:
     llvm_unreachable("Not a call instruction");
