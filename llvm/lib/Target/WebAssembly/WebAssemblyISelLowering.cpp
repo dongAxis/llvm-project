@@ -1188,6 +1188,8 @@ bool WebAssemblyTargetLowering::CanLowerReturn(
   return Subtarget->hasMultivalue() || Outs.size() <= 1;
 }
 
+#include "WebAssemblyGenCallingConv.inc"
+
 SDValue WebAssemblyTargetLowering::LowerReturn(
     SDValue Chain, CallingConv::ID CallConv, bool /*IsVarArg*/,
     const SmallVectorImpl<ISD::OutputArg> &Outs,
@@ -1196,36 +1198,29 @@ SDValue WebAssemblyTargetLowering::LowerReturn(
   assert((Subtarget->hasMultivalue() || Outs.size() <= 1) &&
          "MVP WebAssembly can only return up to one value");
 
+  MachineFunction &MF = DAG.getMachineFunction();
+  MachineFrameInfo &MFI = MF.getFrameInfo();
   SmallVector<CCValAssign, 16> RVLocs;
-  CCState CCInfo(CallConv, isVarArg, MF, RVLocs, *DAG.getContext());
+  CCState CCInfo(CallConv, false, MF, RVLocs, *DAG.getContext());
   CCInfo.AnalyzeReturn(Outs, RetCC_WebAssembly);
 
   SmallVector<SDValue, 4> RetOps(1, Chain);
+  // RetOps.append(OutVals.begin(), OutVals.end());
+  // Chain = DAG.getNode(WebAssemblyISD::RETURN, DL, MVT::Other, RetOps);
   if (RVLocs.size() > 0) {
-      
+    EVT RetVT = Outs[0].ArgVT;
+    int FI = MFI.CreateStackObject(
+        RetVT.getSizeInBits() / 8,
+        Align(getPointerTy(DAG.getDataLayout()).getSizeInBits() / 8), true);
+    SDValue Store =
+        DAG.getStore(Chain, DL, OutVals[0],
+                     DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout())),
+                     MachinePointerInfo::getFixedStack(MF, FI));
+    Chain = DAG.getNode(ISD::TokenFactor, DL, MVT::Other, Store, Chain);
   }
-  
-  
-  RetOps.append(OutVals.begin(), OutVals.end());
-  Chain = DAG.getNode(WebAssemblyISD::RETURN, DL, MVT::Other, RetOps);
-
-  // Record the number and types of the return values.
-  for (const ISD::OutputArg &Out : Outs) {
-    assert(!Out.Flags.isByVal() && "byval is not valid for return values");
-    assert(!Out.Flags.isNest() && "nest is not valid for return values");
-    assert(Out.IsFixed && "non-fixed return value is not valid");
-    if (Out.Flags.isInAlloca())
-      fail(DL, DAG, "WebAssembly hasn't implemented inalloca results");
-    if (Out.Flags.isInConsecutiveRegs())
-      fail(DL, DAG, "WebAssembly hasn't implemented cons regs results");
-    if (Out.Flags.isInConsecutiveRegsLast())
-      fail(DL, DAG, "WebAssembly hasn't implemented cons regs last results");
-  }
-
+  Chain = DAG.getNode(WebAssemblyISD::RETURN, DL, MVT::Other, Chain);
   return Chain;
 }
-
-#include "WebAssemblyGenCallingConv.inc"
 
 SDValue WebAssemblyTargetLowering::LowerFormalArguments(
     SDValue Chain, CallingConv::ID CallConv, bool IsVarArg,
@@ -1261,7 +1256,7 @@ SDValue WebAssemblyTargetLowering::LowerFormalArguments(
         MFI.setObjectZExt(FI, true);
       else if (VA.getLocInfo() == CCValAssign::SExt)
         MFI.setObjectSExt(FI, true);
-      SDValue ArgValue = DAG.getFrameIndex(FI, PtrVT);
+      SDValue ArgValue = DAG.getFrameIndex(FI, ArgVT);
       if (VA.getLocInfo() == CCValAssign::Indirect)
         ArgValue = DAG.getLoad(VA.getValVT(), DL, Chain, ArgValue,
                                MachinePointerInfo());

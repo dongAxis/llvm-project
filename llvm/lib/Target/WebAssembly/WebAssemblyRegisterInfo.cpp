@@ -117,20 +117,11 @@ void WebAssemblyRegisterInfo::eliminateFrameIndex(
 
   unsigned FIRegOperand = FrameRegister;
   if (FrameOffset) {
-    // Create i32/64.add SP, offset and make it the operand.
-    const TargetRegisterClass *PtrRC =
-        MRI.getTargetRegisterInfo()->getPointerRegClass(MF);
-    Register OffsetOp = MRI.createVirtualRegister(PtrRC);
-    BuildMI(MBB, *II, II->getDebugLoc(),
-            TII->get(WebAssemblyFrameLowering::getOpcConst(MF)),
-            OffsetOp)
-        .addImm(FrameOffset);
-    FIRegOperand = MRI.createVirtualRegister(PtrRC);
     BuildMI(MBB, *II, II->getDebugLoc(),
             TII->get(WebAssemblyFrameLowering::getOpcAdd(MF)),
             FIRegOperand)
         .addReg(FrameRegister)
-        .addReg(OffsetOp);
+        .addImm(FrameOffset);
   }
   MI.getOperand(FIOperandNum).ChangeToRegister(FIRegOperand, /*isDef=*/false);
 }

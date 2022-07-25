@@ -43,8 +43,7 @@ class WebAssemblyDAGToDAGISel final : public SelectionDAGISel {
 public:
   WebAssemblyDAGToDAGISel(WebAssemblyTargetMachine &TM,
                           CodeGenOpt::Level OptLevel)
-      : SelectionDAGISel(TM, OptLevel), Subtarget(nullptr) {
-  }
+      : SelectionDAGISel(TM, OptLevel), Subtarget(nullptr) {}
 
   StringRef getPassName() const override {
     return "WebAssembly Instruction Selection";
@@ -199,6 +198,7 @@ void WebAssemblyDAGToDAGISel::Select(SDNode *Node) {
     // supports one or the other. Split calls into two nodes glued together, one
     // for the operands and one for the results. These two nodes will be
     // recombined in a custom inserter hook into a single MachineInstr.
+    SDValue Chain;
     SmallVector<SDValue, 16> Ops;
     for (size_t i = 1; i < Node->getNumOperands(); ++i) {
       SDValue Op = Node->getOperand(i);
@@ -212,6 +212,8 @@ void WebAssemblyDAGToDAGISel::Select(SDNode *Node) {
     MachineSDNode *CallParams =
         CurDAG->getMachineNode(WebAssembly::CALL_PARAMS, DL, MVT::Glue, Ops);
 
+    Chain = Ops.back();
+    DAG.getCopyToReg()
     unsigned Results = Node->getOpcode() == WebAssemblyISD::CALL
                            ? WebAssembly::CALL_RESULTS
                            : WebAssembly::RET_CALL_RESULTS;

@@ -33,6 +33,17 @@ multiclass BinaryInt<SDNode node, string name, bits<32> i32Inst,
                 !strconcat("i64.", !strconcat(name, "\t$dst, $lhs, $rhs")),
                 i64Inst>;
 }
+multiclass BinaryIntImm<SDNode node, string name, bits<32> i32Inst,
+                     bits<32> i64Inst> {
+  defm _IMM_I32 : I<(outs I32:$dst), (ins I32:$lhs, i32imm_op:$rhs),
+                [],
+                !strconcat("i32.imm.", !strconcat(name, "\t$dst, $lhs, $rhs")),
+                i32Inst>;
+  defm _IMM_I64 : I<(outs I64:$dst), (ins I64:$lhs, i64imm_op:$rhs),
+                [],
+                !strconcat("i64.imm.", !strconcat(name, "\t$dst, $lhs, $rhs")),
+                i64Inst>;
+}
 multiclass ComparisonInt<CondCode cond, string name, bits<32> i32Inst, bits<32> i64Inst> {
   defm _I32 : I<(outs I32:$dst), (ins I32:$lhs, I32:$rhs),
                 [(set I32:$dst, (setcc I32:$lhs, I32:$rhs, cond))],
@@ -48,7 +59,9 @@ multiclass ComparisonInt<CondCode cond, string name, bits<32> i32Inst, bits<32> 
 // operands line up vertically after tab expansion.
 let isCommutable = 1 in
 defm ADD : BinaryInt<add, "add ", 0x6a, 0x7c>;
+defm ADD : BinaryIntImm<add, "add ", 0x8f, 0xcf>;
 defm SUB : BinaryInt<sub, "sub ", 0x6b, 0x7d>;
+defm SUB : BinaryIntImm<sub, "sub ", 0x8b, 0x8c>;
 let isCommutable = 1 in
 defm MUL : BinaryInt<mul, "mul ", 0x6c, 0x7e>;
 // Divide and remainder trap on a zero denominator.
@@ -60,6 +73,7 @@ defm REM_U : BinaryInt<urem, "rem_u", 0x70, 0x82>;
 } // hasSideEffects = 1
 let isCommutable = 1 in {
 defm AND : BinaryInt<and, "and ", 0x71, 0x83>;
+defm AND : BinaryIntImm<and, "and ", 0x8d, 0x8e>;
 defm OR : BinaryInt<or, "or  ", 0x72, 0x84>;
 defm XOR : BinaryInt<xor, "xor ", 0x73, 0x85>;
 } // isCommutable = 1

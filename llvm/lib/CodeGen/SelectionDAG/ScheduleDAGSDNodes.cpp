@@ -926,8 +926,10 @@ EmitSchedule(MachineBasicBlock::iterator &InsertPos) {
     SmallVector<SDNode *, 4> GluedNodes;
     for (SDNode *N = SU->getNode()->getGluedNode(); N; N = N->getGluedNode())
       GluedNodes.push_back(N);
+    dbgs() << "glue: -------start-----------\n";
     while (!GluedNodes.empty()) {
       SDNode *N = GluedNodes.back();
+      N->dump(DAG);
       auto NewInsn = EmitNode(N, SU->OrigNode != SU, SU->isCloned, VRBaseMap);
       // Remember the source order of the inserted instruction.
       if (HasDbg)
@@ -939,6 +941,8 @@ EmitSchedule(MachineBasicBlock::iterator &InsertPos) {
 
       GluedNodes.pop_back();
     }
+    dbgs() << "glue: -------end-----------\n";
+     SU->getNode()->dump(DAG);
     auto NewInsn =
         EmitNode(SU->getNode(), SU->OrigNode != SU, SU->isCloned, VRBaseMap);
     // Remember the source order of the inserted instruction.
